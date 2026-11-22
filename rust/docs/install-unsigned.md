@@ -16,6 +16,12 @@ These test builds are not signed yet, so macOS and Windows ask once before they 
    A double-click on an unsigned app only shows "cannot be opened". The right-click is needed once.
 3. On macOS 15 or later, if there is no Open button: open **System Settings → Privacy & Security**,
    scroll down to "AnkiPlus was blocked", click **Open Anyway** and enter your password.
+4. Still blocked? Open **Terminal** (Applications → Utilities), paste this line, press Return, then open
+   AnkiPlus normally:
+
+   ```
+   xattr -dr com.apple.quarantine /Applications/AnkiPlus.app
+   ```
 
 This build is for Apple Silicon Macs (M1 or newer). To check, open the Apple menu → About This Mac and
 look for "Chip: Apple". Intel Macs are not supported yet.
