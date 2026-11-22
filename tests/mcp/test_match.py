@@ -517,3 +517,10 @@ def test_only_the_sibling_that_tests_the_fact_and_number_conflicts():
     prompt = match.build_prompt(report)
     assert '## Conflicts' in prompt and 'lecture [3.0] vs card [2.5] mg/dl' in prompt
     assert 'judge every note' in report['unsuspend']['instructions']
+
+
+def test_form_problems_list_clozes_and_cut_sentences():
+    from ankiplusmcp.match.quotes import form_problems
+    assert form_problems('Causes: {{c1::dehydration}}, {{c1::Sjogren}}, {{c1::radiotherapy}}')[0].startswith('c1 hides 3')
+    assert form_problems('Causes: {{c1::dehydration}}, {{c2::Sjogren}}, {{c3::radiotherapy}}') == []
+    assert 'unpaired' in form_problems('two or more of: {{c2::25%}} of defecations)')[0]
