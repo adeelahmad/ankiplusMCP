@@ -16,59 +16,108 @@ certifi==2026.10.23
     # via
     #   httpcore
     #   httpx
+    #   requests
 cffi==2.1.1 ; platform_python_implementation != 'PyPy'
     # via cryptography
-click==8.5.1 ; sys_platform != 'emscripten'
-    # via uvicorn
+charset-normalizer==3.5.2
+    # via requests
+click==8.5.1
+    # via
+    #   huggingface-hub
+    #   uvicorn
+colorama==0.4.6 ; sys_platform == 'win32'
+    # via
+    #   loguru
+    #   tqdm
 cryptography==50.0.2
     # via pyjwt
-filelock==4.2.10
+fastembed==0.9.1
     # via ankiplusmcp
+fasteners==0.20
+    # via pixeltable-pgserver
+filelock==4.2.10
+    # via
+    #   ankiplusmcp
+    #   huggingface-hub
 flatbuffers==25.12.19
     # via onnxruntime
+fsspec==2026.9.0
+    # via huggingface-hub
 greenlet==3.5.6
     # via playwright
 h11==0.16.0
     # via
     #   httpcore
     #   uvicorn
+hf-xet==1.8.0 ; platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'
+    # via huggingface-hub
 httpcore==1.0.9
     # via httpx
 httpx==0.28.1
-    # via mcp
+    # via
+    #   huggingface-hub
+    #   mcp
 httpx-sse==0.4.3
     # via mcp
+huggingface-hub==1.33.0
+    # via
+    #   fastembed
+    #   tokenizers
 idna==3.20
     # via
     #   anyio
     #   httpx
+    #   requests
 jsonschema==4.26.0
     # via mcp
 jsonschema-specifications==2025.9.1
     # via jsonschema
+loguru==0.7.3
+    # via fastembed
 mcp==1.30.0
     # via ankiplusmcp
+mmh3==5.3.1
+    # via fastembed
 networkx==3.7
     # via pymupdf
 numpy==2.5.4
     # via
     #   ankiplusmcp
+    #   fastembed
     #   onnxruntime
     #   pymupdf
 onnxruntime==1.31.1
-    # via pymupdf
+    # via
+    #   fastembed
+    #   pymupdf
 packaging==26.3
-    # via onnxruntime
+    # via
+    #   huggingface-hub
+    #   onnxruntime
 pillow==13.0.0
+    # via
+    #   ankiplusmcp
+    #   fastembed
+pixeltable-pgserver==0.7.2
     # via ankiplusmcp
 platformdirs==4.14.5
-    # via ankiplusmcp
+    # via
+    #   ankiplusmcp
+    #   pixeltable-pgserver
 playwright==1.65.0
     # via ankiplusmcp
 protobuf==7.36.2
     # via onnxruntime
 psutil==7.2.2
-    # via pymupdf
+    # via
+    #   pixeltable-pgserver
+    #   pymupdf
+psycopg==3.3.9
+    # via ankiplusmcp
+psycopg-binary==3.3.9 ; implementation_name != 'pypy'
+    # via psycopg
+py-rust-stemmers==0.1.8
+    # via fastembed
 pycparser==3.12 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
     # via cffi
 pydantic==2.14.3
@@ -102,11 +151,15 @@ python-multipart==0.0.33
 pywin32==312 ; sys_platform == 'win32'
     # via mcp
 pyyaml==6.0.3
-    # via pymupdf
+    # via
+    #   huggingface-hub
+    #   pymupdf
 referencing==0.37.0
     # via
     #   jsonschema
     #   jsonschema-specifications
+requests==2.34.2
+    # via fastembed
 rpds-py==2026.9.1
     # via
     #   jsonschema
@@ -119,10 +172,19 @@ starlette==1.10.0
     #   sse-starlette
 tabulate==0.10.0
     # via pymupdf
+tokenizers==0.23.3
+    # via fastembed
+tqdm==4.70.1
+    # via
+    #   fastembed
+    #   huggingface-hub
 typing-extensions==4.16.0
     # via
     #   anyio
+    #   huggingface-hub
     #   mcp
+    #   pixeltable-pgserver
+    #   psycopg
     #   pydantic
     #   pydantic-core
     #   pydantic-settings
@@ -134,5 +196,13 @@ typing-inspection==0.4.5
     #   mcp
     #   pydantic
     #   pydantic-settings
+tzdata==2026.6 ; sys_platform == 'win32'
+    # via psycopg
+urllib3==2.8.0
+    # via requests
 uvicorn==0.54.0 ; sys_platform != 'emscripten'
     # via mcp
+win32-setctime==1.2.1 ; sys_platform == 'win32'
+    # via loguru
+zstandard==0.25.0
+    # via ankiplusmcp

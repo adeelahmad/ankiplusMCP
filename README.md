@@ -12,7 +12,7 @@ MCP (Model Context Protocol) is how an AI app connects to tools. AnkiPlus is an
 MCP server running locally on your computer. It has no chat interface of its own.
 Use it through a compatible host such as Claude Code, Claude Desktop or Codex.
 
-[Quick start](#quick-start) · [Worked lecture workflow](docs/study-workflow.md) · [All 40 tools](docs/tools.md) · [Matching existing decks](docs/matching.md) · [Setup guide](docs/setup.md) · [Developer guide](docs/developer-guide.md)
+[Quick start](#quick-start) · [Student setup (one command)](docs/student-setup.md) · [Worked lecture workflow](docs/study-workflow.md) · [All 40 tools](docs/tools.md) · [Matching existing decks](docs/matching.md) · [Setup guide](docs/setup.md) · [Developer guide](docs/developer-guide.md)
 
 ## What can it help you do?
 
@@ -69,7 +69,7 @@ those when you need them; other tools work without them.
 Replace `/absolute/lectures` with the folder containing your study material:
 
 ```sh
-npx -y github:Hamza-Xoho/ankiplusMCP#v0.3.0 init --host claude-code --source-root /absolute/lectures
+npx -y github:adeelahmad/ankiplusMCP#v0.4.0 init --host claude-code --source-root /absolute/lectures
 ```
 
 Change `--host` to `claude-desktop`, `codex`, `opencode` or `hermes` as appropriate.
@@ -84,8 +84,8 @@ See [host-specific setup and options](docs/setup.md#install-and-register).
 ### 3. Check optional features
 
 ```sh
-npx -y github:Hamza-Xoho/ankiplusMCP#v0.3.0 doctor
-npx -y github:Hamza-Xoho/ankiplusMCP#v0.3.0 setup
+npx -y github:adeelahmad/ankiplusMCP#v0.4.0 doctor
+npx -y github:adeelahmad/ankiplusMCP#v0.4.0 setup
 ```
 
 `doctor` reports missing prerequisites. `setup` offers to download Chromium for
@@ -215,7 +215,7 @@ its own. Current limits include 500 PDF pages, 500 saved cards per workspace,
 ## For developers
 
 ```sh
-git clone https://github.com/Hamza-Xoho/ankiplusMCP.git
+git clone https://github.com/adeelahmad/ankiplusMCP.git
 cd ankiplusMCP
 python3 -m venv .venv
 .venv/bin/pip install -e '.[dev]'

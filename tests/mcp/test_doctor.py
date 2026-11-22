@@ -11,7 +11,7 @@ RUN = [sys.executable, '-m', 'ankiplusmcp']
 
 def test_version_line():
     out = subprocess.run(RUN + ['--version'], capture_output=True, text=True)
-    assert out.returncode == 0 and out.stdout.strip() == 'ankiplusmcp 0.3.0'
+    assert out.returncode == 0 and out.stdout.strip() == 'ankiplusmcp 0.4.0'
 
 
 def test_doctor_json_shape_and_exit_codes(tmp_path):
@@ -121,3 +121,16 @@ def test_doctor_reads_config_and_reports_a_bad_browser(monkeypatch, tmp_path, ca
     assert doctor.doctor_main(['--json', '--workspace-root', str(tmp_path), '--config', bad]) == 1
     check = next(c for c in json.loads(capsys.readouterr().out)['checks'] if c['name'] == 'chromium')
     assert check['status'] == 'missing' and 'firefox' in check['detail'] and check['fix']
+
+
+def test_tesseract_install_command_per_platform():
+    which = lambda name: f'/usr/bin/{name}' if name in ('brew', 'apt-get', 'winget') else None
+    assert doctor.tesseract_command('darwin', which) == ['brew', 'install', 'tesseract']
+    assert doctor.tesseract_command('linux', which, root=False)[:3] == ['sudo', 'apt-get', 'install']
+    assert doctor.tesseract_command('linux', which, root=True)[0] == 'apt-get'
+    assert doctor.tesseract_command('win32', which)[:4] == ['winget', 'install', '-e', '--id']
+    assert doctor.tesseract_command('linux', lambda name: None) is None
+
+
+def test_doctor_reports_matching_extra():
+    assert any(c['name'] == 'matching' for c in doctor.run_checks('/tmp'))
