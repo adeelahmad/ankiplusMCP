@@ -8,7 +8,7 @@
 $ErrorActionPreference = 'Stop'
 $Host_ = if ($env:ANKIPLUS_HOST) { $env:ANKIPLUS_HOST } else { 'claude-desktop' }
 $Lectures = if ($env:ANKIPLUS_LECTURES) { $env:ANKIPLUS_LECTURES } else { Join-Path $HOME 'Documents\Lectures' }
-$Ref = if ($env:ANKIPLUS_REF) { $env:ANKIPLUS_REF } else { 'github:adeelahmad/ankiplusMCP#v0.4.0' }
+$Ref = if ($env:ANKIPLUS_REF) { $env:ANKIPLUS_REF } else { 'github:adeelahmad/ankiplusMCP#release-v0.4.0' }
 function Have($name) { [bool](Get-Command $name -ErrorAction SilentlyContinue) }
 function Refresh { $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User') }
 $accept = @('--accept-source-agreements','--accept-package-agreements','-e','--silent')
@@ -25,7 +25,7 @@ if (-not (Have tesseract)) {
 }
 Write-Host "`n==> 4/5 Register AnkiPlus in $Host_ (lectures: $Lectures)"
 New-Item -ItemType Directory -Force -Path $Lectures | Out-Null
-npx -y $Ref init --host $Host_ --source-root $Lectures --yes
+npx -y $Ref init --host $Host_ --source-root $Lectures --yes --force
 Write-Host "`n==> 5/5 Preview browser, matching model and health check"
 npx -y $Ref setup --yes --model
 npx -y $Ref doctor
