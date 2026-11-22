@@ -1,0 +1,317 @@
+{
+  "files": {
+    "agents/archivist.md": {
+      "base": "4ae735cd387e34191a30c39a0df740fd87b80fbbf1421f1befa4c8dcb0248b79",
+      "kind": "effective"
+    },
+    "agents/door-classifier.md": {
+      "base": "1561457193263f48a8024348b1a825ced0bd6c8cb867b8d9cb82145c3da7fab0",
+      "kind": "effective"
+    },
+    "agents/ethics-reviewer.md": {
+      "base": "8fecb7144898f3cda00882e5f219c27ce3c910babd24f32263221227e39e9081",
+      "kind": "effective"
+    },
+    "agents/evaluator.md": {
+      "base": "ebb93d926d8bc6f5df5cc5b0d153de78f2b6dc8f68a8f7632f68f542ba9f02bb",
+      "kind": "effective"
+    },
+    "agents/final-gate.md": {
+      "base": "2b7eb66f9570f12789a327a2604e2c72095780077940500163b4539a132b31a1",
+      "kind": "effective"
+    },
+    "agents/green-worker.md": {
+      "base": "ace2d557738d94dd0ca27f4e6e96014ac94532ae82de9c6589ea507cf4ac663e",
+      "kind": "effective"
+    },
+    "agents/intake.md": {
+      "base": "94f687cb3e63ea321a2704b0ed5c572f08a7f948eaca7783a04b1d0f1634aafc",
+      "kind": "effective"
+    },
+    "agents/market-researcher.md": {
+      "base": "b6945af879c12f06e8c4f7467ff996aaa7748d947ddf18c650cc42eb9e23a5a0",
+      "kind": "effective"
+    },
+    "agents/mission-planner.md": {
+      "base": "a70bfb82ce2a7a9aca376dc2998c4db5895929474bbdad425e81d4200295fb63",
+      "kind": "effective"
+    },
+    "agents/planner.md": {
+      "base": "5ff63a77d6a19770fbd00dc989deaee6368ac7d51531afe0434903a502b31b1e",
+      "kind": "effective"
+    },
+    "agents/product-tester.md": {
+      "base": "a3f5a015743a47ff793b01e673702325105b94121f255808427a6dd19979ad19",
+      "kind": "effective"
+    },
+    "agents/red-worker.md": {
+      "base": "7532d5c004599d620d8c455be81b1e23c5958db6345b58d77e7c86bb8764dd21",
+      "kind": "effective"
+    },
+    "agents/scaffolder.md": {
+      "base": "b7374f323f2576c05d136cd364493c6590f7ebc4fb6b168d652a8add2524ed4f",
+      "kind": "effective"
+    },
+    "agents/standards.md": {
+      "base": "566257f9b12069994d8ae374476808e165f56709ca192c7b52ee4d7c3dc42047",
+      "kind": "effective"
+    },
+    "agents/state-assessor.md": {
+      "base": "1866719437390835490ec9b7e865ca1a3836180ae6d0917dfb0fc8798fb3c6d8",
+      "kind": "effective"
+    },
+    "agents/structural-reviewer.md": {
+      "base": "5bbc4bdcc0795b7f679872590dc7ce15e4bf2a65e2ab7c955f84072a01c8a372",
+      "kind": "effective"
+    },
+    "reference/hooks/hooks.json": {
+      "base": "511e5aecd444d75218c41ad440429986213d27c812565da111c0f48c49e00e48",
+      "kind": "reference"
+    },
+    "reference/libexec/gate-commit-author": {
+      "base": "b69329465836ac055af8879d4354e4c9283dfc94ff57d9294df202446ae56141",
+      "kind": "reference"
+    },
+    "reference/libexec/gate-dispatch": {
+      "base": "913aec14e9935d6f4c612c8efa20fe739bccc284e5b82baeced3d99cba0c8570",
+      "kind": "reference"
+    },
+    "reference/libexec/gate-door-plan": {
+      "base": "e256ee94210b6811bce94ffad687c8c5124bd3db2f7732d1235db05383d7ed90",
+      "kind": "reference"
+    },
+    "reference/libexec/gate-final": {
+      "base": "dd80bc7152a30e835de8bab7548575ce5c4740992c0e7dfc967f9cad17bc3e05",
+      "kind": "reference"
+    },
+    "reference/libexec/gate-green-verify": {
+      "base": "ccb85309620326bf8365143d89ba837f10fc1e77dcb1c18e4d91a00f83933aac",
+      "kind": "reference"
+    },
+    "reference/libexec/gate-intake": {
+      "base": "60183a3562e0fa97fa43e88ac5330603f8b8e1fc7dc1e6defdbde3974abf5ef4",
+      "kind": "reference"
+    },
+    "reference/libexec/gate-ledger-format": {
+      "base": "81440fff772e45b1be4354ab533e88d4af1112a25fa10fb2420e4f551b27f31e",
+      "kind": "reference"
+    },
+    "reference/libexec/gate-memory": {
+      "base": "08f0854b93335751473ac760632893b4935a0d3cf0c0950d1deece7b5cc2a2cf",
+      "kind": "reference"
+    },
+    "reference/libexec/gate-mission-artifact": {
+      "base": "51f89e9b019c102520e29988dd273aa3865e90cb227c7109f47f677cfe2ceca1",
+      "kind": "reference"
+    },
+    "reference/libexec/gate-mission-scope": {
+      "base": "4da3c814bf400e8736d33e9e8996437f04eff2200497033b963f4fbe4939b233",
+      "kind": "reference"
+    },
+    "reference/libexec/gate-plan-shape": {
+      "base": "cd6afdb01b0e4dee8b9204d7e4d454ae9524a29b2ead3d2501593b177ab15228",
+      "kind": "reference"
+    },
+    "reference/libexec/gate-red-verify": {
+      "base": "768bdafcefa43279ad4b0865512741e2cfc03a5718a0eabff878d17acc639512",
+      "kind": "reference"
+    },
+    "reference/libexec/gate-scaffold-verify": {
+      "base": "d9d9b7fec15e0a381c8abcdbeca2d830cc850074ee8b9da4667ee21bcc730720",
+      "kind": "reference"
+    },
+    "reference/libexec/gate-stage2-complete": {
+      "base": "fcdfe7947ac9fe69df57f6e0e91c09c2860f5ed629aefcdcda6cc7b8011ba4b7",
+      "kind": "reference"
+    },
+    "reference/libexec/gate-standards-cited": {
+      "base": "4112ca5b2629535010e952f734ba1f7d1913aabd43730f2a672f571c25359b87",
+      "kind": "reference"
+    },
+    "reference/libexec/gate-structural-integrity": {
+      "base": "8b6289ffb558e9b857ad9b4c5d8403985d1eff102a661e5235006d585803ecc4",
+      "kind": "reference"
+    },
+    "reference/libexec/gate-supervisor-scope": {
+      "base": "f4180df527c1206de1f20426762e9a8159566de671dd60e1e7eeca4dc3e5360e",
+      "kind": "reference"
+    },
+    "reference/libexec/gate-tooling": {
+      "base": "4ff4d3967b230329e0dbdd6ee6b494ebf9291006766ea377aeaef592f66e8eda",
+      "kind": "reference"
+    },
+    "reference/libexec/gate-validate-artifact": {
+      "base": "fe8fdc4d666608f59f504c93db211a2564e4e34cbbad350d2d8d42b3e712df08",
+      "kind": "reference"
+    },
+    "reference/pipeline/execution/00-red/artifacts.md": {
+      "base": "54f0116ff84b3765ff9bb86df9daef537ce2c8d8eeb3f6292cb33f944140d81f",
+      "kind": "reference"
+    },
+    "reference/pipeline/execution/00-red/gate.md": {
+      "base": "a25c362bfa1520e0e04b24cecc7b7d6590369e37f1023c751b2ff8b33fe68e11",
+      "kind": "reference"
+    },
+    "reference/pipeline/execution/00-red/init.template.md": {
+      "base": "a3924e817ef06968201c4f3d3b2ab716276b686243a8d0869e9169270218d534",
+      "kind": "reference"
+    },
+    "reference/pipeline/execution/00-red/persona.md": {
+      "base": "40ea39640958ada49911cffd0c2da902cdf572ea36661e8e45675251800c4d0b",
+      "kind": "reference"
+    },
+    "reference/pipeline/execution/01-scaffold/artifacts.md": {
+      "base": "6da8a979b01f1696a18bc74b15cd3d4df16ee882829028914de692099fcfed07",
+      "kind": "reference"
+    },
+    "reference/pipeline/execution/01-scaffold/gate.md": {
+      "base": "0f3c7a2081639e6776ac12e23ea6e096bb2ab373811b4fa475b1cc9f03f1df1d",
+      "kind": "reference"
+    },
+    "reference/pipeline/execution/01-scaffold/init.template.md": {
+      "base": "4c4b258aafee51a33c9da3443638fe9427343d2af68382ff7c43596e60320eab",
+      "kind": "reference"
+    },
+    "reference/pipeline/execution/01-scaffold/persona.md": {
+      "base": "022bd7069cb8068d85157086f94e0dd22feacb063317447a039b11ac7b7c4c84",
+      "kind": "reference"
+    },
+    "reference/pipeline/execution/02-green/artifacts.md": {
+      "base": "70d68e968a8862c697693cd2b04c1b4e02b855afe5f98780ba28fcd052c6ed8c",
+      "kind": "reference"
+    },
+    "reference/pipeline/execution/02-green/gate.md": {
+      "base": "221d970b41de2845fa5324f7683e7e994eb42dfe5b037e546d04cae995c79b10",
+      "kind": "reference"
+    },
+    "reference/pipeline/execution/02-green/init.template.md": {
+      "base": "6c398e24f199bfb01c0135f23dcdce874b54d51eaf97b4037886c5f9bfee20c9",
+      "kind": "reference"
+    },
+    "reference/pipeline/execution/02-green/persona.md": {
+      "base": "b5eb76505490ade8d968e2f322ce03529df2cca20bd9a1ffd920b5a745771cf4",
+      "kind": "reference"
+    },
+    "reference/pipeline/execution/03-structural-review/artifacts.md": {
+      "base": "46b43efd468e46542321bd753dc94825677a2ff5d175dcd5de55640bd15b92d1",
+      "kind": "reference"
+    },
+    "reference/pipeline/execution/03-structural-review/gate.md": {
+      "base": "0292c60f33eb0001b1ae98d716ed7719301b87dfb44541dd44b1a0ff5be7403f",
+      "kind": "reference"
+    },
+    "reference/pipeline/execution/03-structural-review/init.template.md": {
+      "base": "88f7b0ce02a7c93317ecbe4de09f68d8cfbf1f5242696117212fcb927721a94c",
+      "kind": "reference"
+    },
+    "reference/pipeline/execution/03-structural-review/persona.md": {
+      "base": "b7dd12210ecf083f17fd231c6cc2f4e954f1f2b3f6c26e43ac3ff16507b3dba2",
+      "kind": "reference"
+    },
+    "reference/pipeline/execution/04-final-gate/artifacts.md": {
+      "base": "5d37e031039b4142ff4d275b48c0a5ce0be74346a86c97cccbda8ba9d2b43fac",
+      "kind": "reference"
+    },
+    "reference/pipeline/execution/04-final-gate/gate.md": {
+      "base": "53a83b0429d626c8916eb9d881b7e51ff9274c324cab1f910379e80f5cb3c6ef",
+      "kind": "reference"
+    },
+    "reference/pipeline/execution/04-final-gate/init.template.md": {
+      "base": "cc74db3567af8350a0306f3388f0417cbdd1db8f9bdd3d972f74cc654375adca",
+      "kind": "reference"
+    },
+    "reference/pipeline/execution/04-final-gate/persona.md": {
+      "base": "d448f68d6e8966e271ede3e442cc56d5353e0bc499591b5acadd2646a2ed9765",
+      "kind": "reference"
+    },
+    "reference/pipeline/planning/00-intake/artifacts.md": {
+      "base": "c410c247e5221de7c3c8d29b9ac43baec9dcaff80cfd3052b598d1fae7116b74",
+      "kind": "reference"
+    },
+    "reference/pipeline/planning/00-intake/gate.md": {
+      "base": "e16162f00aae427e31895e4c22d49a587321f9fdb750c9a1b570df3846473415",
+      "kind": "reference"
+    },
+    "reference/pipeline/planning/00-intake/init.template.md": {
+      "base": "2d7f458ad3bfe6c7ce7e97ef3d09fe18fa274b07074ed0eba8b7dca8e0494cb4",
+      "kind": "reference"
+    },
+    "reference/pipeline/planning/00-intake/persona.md": {
+      "base": "2622c1fdab6e88ed6e192b4a41d91e5c70a67cd28d87c1a952ed7d6d797e5c01",
+      "kind": "reference"
+    },
+    "reference/pipeline/planning/01-standards/artifacts.md": {
+      "base": "dbba683d58691c3bdad9c2001cac55b543a7788cd8b8986547433ecd76aa4825",
+      "kind": "reference"
+    },
+    "reference/pipeline/planning/01-standards/gate.md": {
+      "base": "f34cd4e1374bc4b4845dd1d8ec29dedf4ede3dc20fcd527ffbbddab11d129de0",
+      "kind": "reference"
+    },
+    "reference/pipeline/planning/01-standards/init.template.md": {
+      "base": "ea89588b3f8a480827e296d91b753aca15ad76bca8ffc3c024545a89f2ccb263",
+      "kind": "reference"
+    },
+    "reference/pipeline/planning/01-standards/persona.md": {
+      "base": "544b531dcef768a2d1d434a7b69946a6af1ed0a109bbadc1a7399413ac67d2b9",
+      "kind": "reference"
+    },
+    "reference/pipeline/planning/02-planner/artifacts.md": {
+      "base": "0660cf517a322d7c07b032a6ab130b3bdd66c4749dfce21a18c0bf874d57c32d",
+      "kind": "reference"
+    },
+    "reference/pipeline/planning/02-planner/gate.md": {
+      "base": "b7ed9d35dca08f41a3d400cd6db3fac8d3d5da5f8eba8fe109ec26527aa15922",
+      "kind": "reference"
+    },
+    "reference/pipeline/planning/02-planner/init.template.md": {
+      "base": "0b623a5834eff75d436d3ec55d59ec03a65148e2ed1ee2f609b892f37b6cefaf",
+      "kind": "reference"
+    },
+    "reference/pipeline/planning/02-planner/persona.md": {
+      "base": "6137530b61ee5381b15484b9def17c54a36550a1fdd4f4bce2ce1f5203abf57a",
+      "kind": "reference"
+    },
+    "reference/pipeline/planning/02-planner/replan.template.md": {
+      "base": "ea4479c04d924ce5023e59d9a989123b0ea9fbf76936139c7394cd402b533cf0",
+      "kind": "reference"
+    },
+    "reference/pipeline/planning/retrospective/artifacts.md": {
+      "base": "d7b87e5194ea8b6f9ef0578b2afee0e0cb251713b88f5f381cfdabc54b184c46",
+      "kind": "reference"
+    },
+    "reference/pipeline/planning/retrospective/gate.md": {
+      "base": "9a0672a0aaf95ec045e2c28388fcaf60d76138d371602990acc7344adbc4ec19",
+      "kind": "reference"
+    },
+    "reference/pipeline/planning/retrospective/init.template.md": {
+      "base": "56760fd8853e99eb7a748974f957236a96d1138d689bf0488a189bc055e0a795",
+      "kind": "reference"
+    },
+    "reference/pipeline/planning/retrospective/persona.md": {
+      "base": "31ba1ecd3698837dff9695d9ac82ce0d74845e56d9c53dde2d7e33c3d3a7e590",
+      "kind": "reference"
+    },
+    "skills/aladdin/SKILL.md": {
+      "base": "e84b0fbb51ba2f201ccbc78566ee510e164349067c5fb99457d45fc252d196d1",
+      "kind": "effective"
+    },
+    "skills/aloop/SKILL.md": {
+      "base": "c473ea025e0a2f340624836083f325927ebacc09beeb47d855ddc4e6357b625e",
+      "kind": "effective"
+    },
+    "skills/aloop/reference.md": {
+      "base": "aff32b4eebe78c641e7942608c77b5c6a1d948c51ccde38c5e3c62090d06db59",
+      "kind": "effective"
+    },
+    "skills/init/SKILL.md": {
+      "base": "bea46419b2b4cc2ef99e1e2b06bffff7e0205967be252377be3f7a96e1e38b2f",
+      "kind": "effective"
+    },
+    "skills/mission/SKILL.md": {
+      "base": "d0855585744f5f35fd3fe91768e01696323bffe4938200929095dc452ce43533",
+      "kind": "effective"
+    }
+  },
+  "plugin_version": "0.13.0"
+}

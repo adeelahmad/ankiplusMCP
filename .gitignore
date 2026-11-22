@@ -23,3 +23,10 @@ workspaces/
 node_modules/
 *.tgz
 .claude/worktrees/
+
+# aloop (managed by aloop-init)
+.agentic/
+.transcripts/
+docs/agents/*
+!docs/agents/userspace/
+.aladdin/

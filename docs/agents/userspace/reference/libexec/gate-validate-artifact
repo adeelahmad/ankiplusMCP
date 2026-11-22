@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# PostToolUse(Write): route a just-written .md to its KDL schema and validate via
+# md-db. If md-db is absent, WARN and fall back to a frontmatter check — never a
+# false block, never a silent pass of a real check.
+set -uo pipefail
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; export PATH="$BIN_DIR:$PATH"  # md-db shim -> real binary
+: "${CLAUDE_PLUGIN_ROOT:=$(cd "$BIN_DIR/.." && pwd)}"   # the schemas; a host that sets no plugin root still validates
+
+# Resolve the written file path: arg, env, or the PostToolUse stdin JSON. Read as JSON, from
+# tool_input: a greedy sed over the raw text took the LAST "file_path" anywhere (a later field's),
+# and an escaped quote cut it short, so the write it named went unchecked. A payload that is not
+# JSON blocks: the gate cannot tell what was written (fail closed).
+f="${1:-${TOOL_FILE_PATH:-}}"
+if [ -z "$f" ] && [ ! -t 0 ]; then
+  json="$(cat)"
+  f="$(printf '%s' "$json" | python3 -c '
+import json, sys
+raw = sys.stdin.read()
+try:
+    p = json.loads(raw) if raw.strip() else {}
+except ValueError:
+    sys.exit(3)
+ti = p.get("tool_input") if isinstance(p, dict) else None
+v = ti.get("file_path") if isinstance(ti, dict) else None
+sys.stdout.write(v if isinstance(v, str) and "\0" not in v else "")' 2>/dev/null)" \
+    || { echo "BLOCK[gate-validate-artifact]: the PostToolUse payload is not JSON this gate can read (or python3 is missing); it cannot tell which file was written." >&2; exit 2; }
+fi
+[ -z "$f" ] && exit 0
+
+case "$(basename "$f")" in
+  init.md|output.md)
+    # Append-only comms: the dynamic `## <task> · attempt N · <role> · <ts>` blocks
+    # cannot be md-db-enumerated, so here we validate only the static top frontmatter;
+    # block structure is grep-checked by validate_comms at SubagentStop.
+    [ -f "$f" ] || exit 0
+    head -1 "$f" | grep -q '^---' \
+      || { echo "BLOCK[gate-validate-artifact]: $f missing top YAML frontmatter ('--- type: init|output ---')" >&2; exit 2; }
+    awk 'NR==1&&/^---/{g=1;next} g&&/^---/{exit} g' "$f" | grep -qiE '^type:[[:space:]]*(init|output)([[:space:]]|$)' \
+      || { echo "BLOCK[gate-validate-artifact]: $f frontmatter 'type:' must be init or output" >&2; exit 2; }
+    exit 0 ;;
+  stories.md|tasks.md|validate.md|plan.md|plan-ready.md) schema=planning-artifacts.kdl ;;
+  *) exit 0 ;;
+esac
+
+if "$BIN_DIR/ensure-tools" --resolve md-db >/dev/null 2>&1; then
+  # Validate THIS file only. Its directory also holds init.md/output.md (and the sprint dir
+  # holds stats.md, story dirs, ...), which this schema does not know, so validating the
+  # directory blocked every valid planner write.
+  # The diagnostics go to stderr WITH the block: a PostToolUse block hands the model only
+  # stderr, and a bare "failed the schema" made the planner guess (live e2e run 11: every
+  # planning artifact was written twice before it passed, 12 of 25 gate verdicts).
+  if ! out="$(md-db validate "$f" --schema "${CLAUDE_PLUGIN_ROOT}/schemas/$schema" --format text 2>&1)"; then
+    echo "BLOCK[gate-validate-artifact]: $f failed $schema — fix these and write it again:" >&2
+    printf '%s\n' "$out" | grep -E '^[[:space:]]*(error|warning)\[|^[[:space:]]*= hint:|^[[:space:]]*-->' | head -40 >&2
+    exit 2
+  fi
+else
+  echo "WARN[gate-validate-artifact]: md-db absent; frontmatter-only fallback for $f" >&2
+  [ -f "$f" ] || exit 0
+  # Fallback: artifact must open with YAML frontmatter carrying a type: field.
+  head -1 "$f" | grep -q '^---' \
+    || { echo "BLOCK[gate-validate-artifact]: $f missing YAML frontmatter" >&2; exit 2; }
+  # `type:` must be INSIDE the frontmatter block (between the first two --- lines).
+  awk 'NR==1&&/^---/{f=1;next} f&&/^---/{exit} f' "$f" | grep -qE '^type:[[:space:]]*[A-Za-z-]+' \
+    || { echo "BLOCK[gate-validate-artifact]: $f frontmatter missing type:" >&2; exit 2; }
+fi

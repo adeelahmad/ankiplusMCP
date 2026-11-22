@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# GREEN gate: this task's tests pass, no regression, diff within tasks.md scope,
+# the standards.md matrix is green, zero suppressions, no unplanned dependency or added credential, output.md validates.
+# (Target: Rust. The matrix is the one DECLARED IN standards.md — not hardcoded.)
+GATE_NAME="gate-green-verify"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+: "${CLAUDE_PLUGIN_ROOT:=$(cd "$HERE/.." && pwd)}"
+# shellcheck source=/dev/null
+source "$HERE/_gatelib.sh"
+
+# 0) Worktree isolation (invariant): this worker must run in a linked worktree.
+assert_worktree_isolation
+assert_work_committed
+
+# 1) output.md / init.md structure.
+validate_comms
+
+# 2) No suppression anywhere (RED is cleared by GREEN, never by skipping).
+assert_no_suppression
+
+# 3) Diff scope: only the files this task's plan names. With the planner's targets.json that is
+#    its targets' paths and its planned tests, literally (ROADMAP §4.6, M11.12): a new test file
+#    passes, an existing test outside the plan may only gain lines, and a production file the plan
+#    missed passes only as a declared, reasoned two-way exemption (`targets diffscope`, a ledger
+#    row each). The contract's SCOPE_GLOBS can only narrow that. No targets.json: SCOPE_GLOBS.
+: "${TEST_GLOBS:=$DEFAULT_TEST_GLOBS}"   # its RED test files, to drop shims (any language)
+if [ -n "${STORY_DIR:-}" ] && [ -f "$STORY_DIR/targets.json" ]; then
+  scope_base="$(diff_base)"
+  [ -n "$scope_base" ] || fail "cannot find where this task's branch left main (BASE_REF unset, no merge-base): the diff scope cannot be judged"
+  if ! scope_out="$("$HERE/targets" diffscope "${TASK_ID##*-}" "$STORY_DIR" --base "$scope_base" --root "$(repo_dir)" \
+        --role green --task-id "${TASK_ID:-}" --agent-role "${AGENT_ROLE:-}" --tests "$TEST_GLOBS" --globs "${SCOPE_GLOBS:-}" 2>&1)"; then
+    fail "GREEN diff is outside this task's plan:
+$scope_out"
+  fi
+  note "diff in this task's planned fileset${scope_out:+ ($scope_out)}"
+elif [ -n "${SCOPE_GLOBS:-}" ]; then
+  allow="$SCOPE_GLOBS $TEST_GLOBS"
+  while IFS= read -r p; do
+    [ -z "$p" ] && continue
+    path_matches_any "$p" "$allow" \
+      || fail "GREEN diff touches out-of-scope path: $p (allowed: $allow)"
+  done < <(changed_paths)
+else
+  warn "SCOPE_GLOBS unset and no targets.json; tasks.md diff-scope check skipped (set it to enforce R2)"
+fi
+
+# 3b) Supply chain: no dependency the approved plan does not name (ROADMAP M10.2).
+assert_planned_dependencies
+# and no credential in the lines this task added (the final gate scans the whole project).
+secrets_base="$(diff_base)"
+[ -n "$secrets_base" ] && assert_no_secrets "$secrets_base"
+
+# 4) The standards.md gate matrix (fmt/lint/test/coverage/...) must be green.
+#    This also asserts the task's tests now pass and nothing regressed.
+run_standards_matrix
+
+note "GREEN verified: matrix green, in scope, no suppression"
+exit 0

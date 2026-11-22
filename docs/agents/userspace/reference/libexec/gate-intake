@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# intake gate: the planning intake must carry the FIVE-PART intent — what's wanted,
+# constraints, failure scenarios, success scenarios, and connections. A story planned
+# without failure/success scenarios is the #1 cause of wrong-scope builds.
+# Run as a self-check before reporting; also wired as the SubagentStop(intake) backstop.
+set -uo pipefail
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; export PATH="$BIN_DIR:$PATH"  # md-db shim -> real binary
+: "${CLAUDE_PLUGIN_ROOT:=$(cd "$BIN_DIR/.." && pwd)}"   # the schemas; a host that sets no plugin root still validates
+GATE_NAME="gate-intake"
+# shellcheck source=/dev/null
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_failclosed.sh"   # a crash blocks, never allows
+
+# shellcheck source=/dev/null
+. "$BIN_DIR/_finddoc.sh"                                # agentic_find_doc: never a host's agent definition
+
+f="${1:-${INTAKE_FILE:-}}"
+if [ -z "$f" ]; then
+  f="$(agentic_find_doc intake.md)"
+  [ -z "$f" ] && f="$(agentic_find_doc stories.md)"
+fi
+if [ -z "$f" ] || [ ! -f "$f" ]; then
+  echo "WARN[$GATE_NAME]: no intake.md/stories.md found; five-part intent check skipped (weaker)" >&2
+  exit 0
+fi
+
+# md-db structural validation when stories.md + schema are available.
+if "$BIN_DIR/ensure-tools" --resolve md-db >/dev/null 2>&1 && [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/schemas/planning-artifacts.kdl" ]; then
+  case "$f" in
+    */stories.md) md-db validate "$f" --schema "${CLAUDE_PLUGIN_ROOT}/schemas/planning-artifacts.kdl" \
+        || { echo "BLOCK[$GATE_NAME]: $f failed planning-artifacts.kdl" >&2; exit 2; } ;;
+  esac
+fi
+
+# Five-part intent: each concept must appear (heading or label), case-insensitive.
+missing=""
+grep -qiE 'what|intent|outcome|goal'         "$f" || missing="$missing what/intent"
+grep -qiE 'constraint'                        "$f" || missing="$missing constraints"
+grep -qiE 'failure|failing|negative|anti-'    "$f" || missing="$missing failure-scenarios"
+grep -qiE 'success|acceptance|done'           "$f" || missing="$missing success-scenarios"
+grep -qiE 'connection|depend|integrat|relat'  "$f" || missing="$missing connections"
+
+if [ -n "$missing" ]; then
+  echo "BLOCK[$GATE_NAME]: five-part intent incomplete in $f — missing:$missing" >&2
+  echo "  (a story without failure + success scenarios must not advance to planning)" >&2
+  exit 2
+fi
+echo "[$GATE_NAME] five-part intent present in $f" >&2
+
+# The internal Intent Contract (ROADMAP §4.1), when intake wrote one: newest wins.
+ic="$(ls -t "$(dirname "$f")"/../intents/int_*.json "$(dirname "$f")"/intents/int_*.json 2>/dev/null | head -1)"
+if [ -n "$ic" ]; then
+  # no AGENTIC_AUTONOMY_MODE: the project's mode, autonomous by default (ROADMAP M11.1)
+  "$BIN_DIR/intent" check "$ic" ${AGENTIC_AUTONOMY_MODE:+--mode "$AGENTIC_AUTONOMY_MODE"}; rc=$?
+  if [ "$rc" = 3 ]; then
+    # NEEDS-HUMAN release (ROADMAP §4.9), as a STUCK release: questions only the human can answer are not
+    # the intake's to fix, so blocking its stop buys fix rounds it cannot use (or an answer it made up). A
+    # host's stop is released at once, NOT verified, and the questions are recorded for the supervisor
+    # (`intent release`); a self-check or a direct run still blocks. Read only now: no payload, no wait.
+    payload=""
+    [ -t 0 ] || IFS= read -r -d '' -t 2 payload || true
+    if printf '%s' "$payload" | "$BIN_DIR/intent" release "$ic"; then
+      echo "[$GATE_NAME] NEEDS-HUMAN — Intent Contract $ic has questions only the human can answer; stop released, NOT verified." >&2
+      echo "  Not a pass. Supervisor: ask the human each ASK question above, then re-dispatch intake with the answers in a ### Feedback block (it records each one)." >&2
+      exit 0
+    fi
+    echo "BLOCK[$GATE_NAME]: Intent Contract $ic has questions only the human can answer — never answer one yourself: list them in your report and finish (your stop reaches the supervisor as NEEDS-HUMAN, and it asks the human)" >&2
+    exit 2
+  fi
+  [ "$rc" = 0 ] || { echo "BLOCK[$GATE_NAME]: Intent Contract $ic is invalid" >&2; exit 2; }
+fi
+exit 0

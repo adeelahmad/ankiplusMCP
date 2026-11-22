@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# RED gate: every NEW test fails BY ASSERTION (not compile error), none regressed,
+# diff touches only test + shim files, output.md validates. Rust runs cargo; any other language
+# runs the test command its standards.md gate matrix declares (pytest, go test, npm test, ...).
+GATE_NAME="gate-red-verify"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+: "${CLAUDE_PLUGIN_ROOT:=$(cd "$HERE/.." && pwd)}"
+# shellcheck source=/dev/null
+source "$HERE/_gatelib.sh"
+
+# 0) Worktree isolation (invariant): this worker must run in a linked worktree.
+assert_worktree_isolation
+assert_work_committed
+
+# 1) output.md / init.md structure.
+validate_comms
+
+# 2) Parse the LATEST output.md block's Result table: no NEW test (`::` Check) may be
+#    PASS; >=1 FAIL. validate_comms already proved the block exists and is this dispatch's.
+block="$(latest_block "${STORY_DIR:-}/output.md")"
+test_rows="$(printf '%s\n' "$block" | grep -E '^\|.*::.*\|' || true)"
+if [ -n "$test_rows" ]; then
+  # A PASS row is allowed only for a test already on the base (an earlier task's, listed for
+  # context); a test fn the base does not have is NEW and must FAIL.
+  while IFS= read -r row; do
+    fn="$(printf '%s\n' "$row" | grep -oE '::[A-Za-z_][A-Za-z0-9_]*' | tail -1 | cut -c3-)"
+    if [ -n "$fn" ] && [ -n "${BASE_REF:-}" ] \
+       && git -C "$(repo_dir)" grep -qE "(fn|def|func)[[:space:]]+${fn}[[:space:]]*[(<]" "$BASE_REF" -- 2>/dev/null; then
+      continue
+    fi
+    fail "a NEW test PASSED in RED (test exercises nothing) — latest output.md block has a PASS row: ${fn:-$row}"
+  done < <(printf '%s\n' "$test_rows" | grep -iE '\|[[:space:]]*PASS[[:space:]]*\|')
+  # here-strings: a `printf | grep -q` cut off by grep's early exit fails under pipefail (validate_comms)
+  grep -qiE '\|[[:space:]]*FAIL[[:space:]]*\|' <<<"$test_rows" \
+    || fail "no FAILing test row in the latest output.md block — RED produced no failing test"
+else
+  warn "latest output.md block has no recognizable test rows (path::fn); relying on cargo run"
+fi
+if grep -qiE 'regressed=[1-9]' <<<"$block"; then
+  fail "RED regressed a previously-passing test (regressed>0 in latest output.md block)"
+fi
+
+# 3) Diff scope: only test files + shim module.
+# Test files only (DEFAULT_TEST_GLOBS in _gatelib.sh: any language).
+: "${TEST_GLOBS:=$DEFAULT_TEST_GLOBS}"
+while IFS= read -r p; do
+  [ -z "$p" ] && continue
+  path_matches_any "$p" "$TEST_GLOBS" \
+    || fail "RED diff touches a non-test path: $p (allowed: $TEST_GLOBS). RED writes tests only: put shims in tests/common/mod.rs (marked // agentic:shim), then undo the change and commit: git checkout ${BASE_REF:-<base>} -- '$p' (a new file: git rm '$p'), then git commit -am 'RED: tests only'"
+done < <(changed_paths)
+
+# 3a) An existing test outside this task's plan may only gain lines: RED never deletes or rewrites
+#     another task's proof (targets diffscope; new test files pass).
+if [ -n "${STORY_DIR:-}" ] && [ -f "$STORY_DIR/targets.json" ] && red_base="$(diff_base)" && [ -n "$red_base" ]; then
+  red_out="$("$HERE/targets" diffscope "${TASK_ID##*-}" "$STORY_DIR" --base "$red_base" --root "$(repo_dir)" \
+      --role red --task-id "${TASK_ID:-}" --tests "$TEST_GLOBS" 2>&1)" \
+    || fail "RED changes a test outside this task's plan:
+$red_out"
+fi
+
+# 3b) Format: RED's files must pass the matrix's format check (GREEN may not reformat them).
+run_format_checks
+
+# 4) Fail-by-assertion: tests must COMPILE against shims, then FAIL.
+if [ "${GATE_RUN_TESTS:-auto}" != "0" ] && is_cargo_repo; then
+  root="$(repo_dir)"
+  note "compiling tests (must succeed against mod-common shims)"
+  _build="$(mktemp)"
+  if ! ( cd "$root" && cargo test --no-run --workspace ) >"$_build" 2>&1; then
+    grep -E '^(error|warning: unused)|^ *--> ' "$_build" | head -20 >&2
+    # Name what the tests cannot find and where its shim goes (live e2e run 25: a RED worker
+    # blocked 5 times on a bare "add mod-common shims" after reverting a src/ skeleton).
+    _missing="$(sed -nE \
+      -e 's/.*error\[E04(25|12|22|23)\]: cannot find [a-z ]+ `([A-Za-z_][A-Za-z0-9_]*)`.*/\2/p' \
+      -e 's/.*error\[E0432\]: unresolved import `([A-Za-z0-9_:]*::)?([A-Za-z_][A-Za-z0-9_]*)`.*/\2/p' \
+      -e 's/.*error\[E0599\]: no (function or associated item|method) named `([A-Za-z_][A-Za-z0-9_]*)`.*/\2/p' \
+      "$_build" | awk '!seen[$0]++' | head -6)"
+    rm -f "$_build"
+    if [ -n "$_missing" ]; then
+      _names="$(printf '`%s` ' $_missing)"; _shims=""
+      for _m in $_missing; do
+        case "$_m" in [[:upper:]]*) _shims="$_shims pub struct $_m; //" ;; *) _shims="$_shims pub fn $_m(…) -> … { todo!() } //" ;; esac
+      done
+      fail "RED tests do NOT compile: they cannot find ${_names% }. RED's tests must compile and fail by assertion, so each missing item gets a shim in tests/common/mod.rs, marked // agentic:shim:${_shims%//} — and the test files call it through \`mod common;\` (common::$(printf '%s' "$_missing" | head -1)), not the crate; src/ is SCAFFOLD's and GREEN's."
+    fi
+    fail "RED tests do NOT compile — they fail by missing symbol, not by assertion: add the missing items as shims in tests/common/mod.rs (marked // agentic:shim) and call them through \`mod common;\`"
+  fi
+  rm -f "$_build"
+  note "running tests (must fail by assertion)"
+  if ( cd "$root" && cargo test --workspace >/dev/null 2>&1 ); then
+    fail "RED tests PASS with no production code — they exercise nothing"
+  fi
+  note "RED verified: compiles, fails by assertion"
+elif [ "${GATE_RUN_TESTS:-auto}" != "0" ] && tc="$(standards_test_command)" && [ -n "$tc" ]; then
+  # Not a cargo repo: run the test command the project's own gate matrix declares.
+  root="$(repo_dir)"; _out="$(mktemp)"
+  note "running tests (must fail by assertion): $tc"
+  ( cd "$root" && eval "$tc" ) >"$_out" 2>&1; rc=$?
+  tail -15 "$_out" >&2
+  _build_failed=""; grep -qE '\[(build|setup) failed\]' "$_out" && _build_failed=1
+  # JS: a test file that cannot load what it imports also exits 1, like a failed assertion
+  _load_failed=""; grep -qE 'ERR_MODULE_NOT_FOUND|Cannot find module|does not provide an export named|SyntaxError:|ReferenceError:' "$_out" && _load_failed=1
+  rm -f "$_out"
+  [ "$rc" -ne 0 ] || fail "RED tests PASS with no production code — they exercise nothing ($tc exited 0)"
+  case "$tc" in
+    *pytest*)   # pytest: 1 tests failed · 2 collection error (an import) · 3/4 internal/usage · 5 none collected
+      case "$rc" in
+        1) ;;
+        5) fail "RED's test command collected no tests ($tc exited 5): write the tests under tests/ as test_*.py" ;;
+        *) fail "RED tests do NOT collect ($tc exited $rc: an import or collection error, not an assertion). Each missing name gets a shim the tests import from the test side (tests/conftest.py or a tests/ helper module, marked # agentic:shim); the source tree is SCAFFOLD's and GREEN's." ;;
+      esac ;;
+    *"go test"*)
+      [ -z "$_build_failed" ] \
+        || fail "RED tests do NOT compile ($tc: build failed): add each missing name as a shim in a _test.go file (marked // agentic:shim); the source tree is SCAFFOLD's and GREEN's." ;;
+    *"node --test"*|*npm*|*yarn*|*pnpm*|*jest*|*vitest*|*"bun test"*|*"deno test"*)
+      [ -z "$_load_failed" ] \
+        || fail "RED tests do NOT load ($tc: a module, export or name is missing, not an assertion): import each missing name from a shim in a test file (e.g. src/<name>.shim.test.js, marked // agentic:shim); the source tree is SCAFFOLD's and GREEN's." ;;
+  esac
+  note "RED verified: $tc fails (exit $rc)"
+else
+  warn "no cargo project and no test command in the standards.md gate matrix; fail-by-assertion not dynamically verified"
+fi
+
+exit 0

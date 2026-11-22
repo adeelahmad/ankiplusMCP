@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# STRUCTURAL-INTEGRITY gate: orphan modules, parallel implementations, duplicate
+# helpers — the compiler-invisible defects. exit 2 ONLY on a HIGH-severity
+# (foundation-poisoning) finding; isolated/low findings are emitted for the
+# supervisor to triage (re-spawn vs collect). (Target: Rust + ctx-symbols.)
+GATE_NAME="gate-structural-integrity"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+: "${CLAUDE_PLUGIN_ROOT:=$(cd "$HERE/.." && pwd)}"
+# shellcheck source=/dev/null
+source "$HERE/_gatelib.sh"
+
+# Comms: the reviewer must have appended its findings block to the story's output.md.
+validate_comms
+
+root="$(repo_dir)"
+
+if have_ctx_symbols; then
+  findings="$(ctx-symbols conflicts --tree "$root" || true)"
+  if [ -n "$findings" ]; then
+    echo "$findings" >&2
+  fi
+  # Foundation-poisoning = any HIGH finding (duplicate definition / parallel impl). A here-string:
+  # `echo | grep -q` under pipefail read the SIGPIPE of an echo still writing as "no HIGH".
+  if grep -q '^HIGH' <<<"$findings"; then
+    fail "HIGH-severity structural finding (foundation-poisoning) — HALT the chain"
+  fi
+  note "structural review clean (no HIGH findings)"
+else
+  warn "ctx-symbols absent; grep fallback cannot see semantic duplication (weaker check)"
+  # Fragile fallback: flag any top-level fn name defined in 2+ files. Not under tests/: each
+  # integration-test file is its own crate, so helpers there cannot collide.
+  dups="$(grep -rhoE '^[[:space:]]*(pub[[:space:]]+)?fn[[:space:]]+[A-Za-z_][A-Za-z0-9_]*' \
+            --include='*.rs' --exclude-dir=target --exclude-dir=tests --exclude-dir=.claude --exclude-dir=.agentic --exclude-dir=.aladdin "$root" 2>/dev/null \
+            | sed -E 's/.*fn[[:space:]]+//' | sort | uniq -d)"
+  if [ -n "$dups" ]; then
+    echo "HIGH (grep): duplicate fn name(s): $(echo "$dups" | tr '\n' ' ')" >&2
+    fail "HIGH (grep fallback): duplicate fn name(s) — install ctx-symbols to confirm"
+  fi
+fi
+
+exit 0

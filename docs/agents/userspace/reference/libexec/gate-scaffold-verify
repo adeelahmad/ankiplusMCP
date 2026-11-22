@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# SCAFFOLD gate: every referenced symbol defined EXACTLY ONCE (ctx-symbols count==1),
+# every new body is panic+TODO (OPEN-1 guard: a real body where a stub belongs =>
+# reject), no mod-common shim remains, no clobber. (Target: Rust.)
+GATE_NAME="gate-scaffold-verify"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+: "${CLAUDE_PLUGIN_ROOT:=$(cd "$HERE/.." && pwd)}"
+# shellcheck source=/dev/null
+source "$HERE/_gatelib.sh"
+
+# 0) Worktree isolation (invariant): this worker must run in a linked worktree.
+assert_worktree_isolation
+assert_work_committed
+
+# 0b) Comms: this agent must have appended its report block to the story's output.md.
+validate_comms
+
+root="$(repo_dir)"
+have_ctx_symbols || warn "ctx-symbols absent; using grep fallback for uniqueness (fragile)"
+
+# 1) Resolve the symbol set: $SCAFFOLD_SYMBOLS, else parse `path::Sym` backticks
+#    from this story's plan-ready.md (the test call-sites name the prod symbols).
+# Symbol set = the PRODUCTION symbols the scaffolder stubbed. Source order:
+#   1) SCAFFOLD_SYMBOLS env (from the task contract)
+#   2) <worktree>/.aladdin/scaffold-symbols, or .agentic/ (scaffolder-written, one symbol per line)
+# NOTE: plan-ready.md lists TEST paths (path::test_fn), NOT production symbols, so it is
+# NOT a valid source for this check (v0.2 fix).
+symbols="${SCAFFOLD_SYMBOLS:-}"
+if [ -z "$symbols" ]; then
+  sf="$(agentic_marker "$root" scaffold-symbols)" || true
+  if [ -f "$sf" ]; then
+    # one symbol per line; anything after it on the line is a note ("Foo (enum) @ src/lib.rs").
+    # Workers also write the "### Scaffold" report shape ("+ create fn crate::Foo @ src/lib.rs",
+    # "- delete tests/common/mod.rs"): a leading marker, verb or keyword is skipped, the first
+    # identifier after them is the symbol (live runs 18–19: `create` was "defined 0 times").
+    symbols="$(grep -vE '^[[:space:]]*(#|$)' "$sf" | awk '
+      /(^|[[:space:]])for([[:space:]]|$)/ { next }            # "Display for Foo": a trait impl, not a new symbol
+      NR == 1 && tolower($1) ~ /^(symbol|name)$/ && tolower($2) ~ /^(path|kind|file)$/ { next }  # table header
+      { i = 1
+        while (i <= NF && ($i ~ /^[-+~*|]$/ || tolower($i) ~ /^(create|created|add|added|stub|stubbed|new|delete|deleted|remove|removed|update|updated|change|changed|pub|fn|struct|enum|trait|type|mod|const|static|impl|unsafe|async)$/)) i++
+        if (i <= NF) print $i }' | sort -u)"
+  fi
+fi
+# keep only identifiers / paths (`Foo`, `crate::Foo`): punctuation is never a symbol. A path is
+# reduced to its last segment: `ctx-symbols count` and the grep fallback count by name.
+symbols="$(printf '%s\n' $symbols | tr -d '`,' | grep -E '^[A-Za-z_][A-Za-z0-9_]*(::[A-Za-z_][A-Za-z0-9_]*)*$' | sed 's/.*:://' | sort -u)"
+[ -z "$symbols" ] && warn "no scaffold symbols resolved (set SCAFFOLD_SYMBOLS or write .aladdin/scaffold-symbols in the worktree); uniqueness check skipped"
+
+# 2) Each symbol defined exactly once across the tree.
+for sym in $symbols; do
+  n="$(symbol_count "$sym" "$root")"
+  hint=""
+  [ "${n:-0}" = "0" ] && hint=". .aladdin/scaffold-symbols is one production symbol per line (\`count_words @ src/lib.rs\`): no verbs, keywords or test paths"
+  [ "$n" = "1" ] || fail "symbol \`$sym\` defined ${n:-0} times (must be exactly 1 — duplicate/parallel definition)$hint"
+done
+
+# 3) No MARKED shim remains. RED shims carry `// agentic:shim`; a normal
+#    tests/common/mod.rs helper has no marker and is left untouched (v0.2 fix).
+if grep -rlE '//[[:space:]]*agentic:shim' --include='*.rs' "$root" 2>/dev/null | grep -v '/target/' >/dev/null; then
+  fail "a marked RED shim (// agentic:shim) still present after scaffold (must be deleted)"
+fi
+
+# 4) OPEN-1 guard: every scaffolded symbol's file must carry a SUB-AGENT-TODO panic
+#    (a real implementation in place of a stub => reject).
+for sym in $symbols; do
+  if have_ctx_symbols; then
+    file="$(ctx-symbols locate "$sym" --tree "$root" | head -1 | cut -d: -f1)"
+  else
+    # the same name-anchored definition match as symbol_count (`.*sym` also hit `fn sub_works`
+    # in tests/, so the answer depended on directory order)
+    file="$(grep -rlE "\\b(fn|struct|enum|trait|type|const|static|mod)\\s+$sym\\b" --include='*.rs' "$root" 2>/dev/null | grep -v '/target/' | head -1)"
+  fi
+  [ -z "$file" ] && fail "scaffolded symbol \`$sym\` not found on disk"
+  # A symbol an earlier task already implemented on main, in a file this scaffold left unchanged
+  # since BASE_REF, implements nothing here (live e2e run 31: T2's tests called T1's `parse`).
+  rel="${file#"$root"/}"
+  if [ -n "${BASE_REF:-}" ] && git -C "$root" cat-file -e "$BASE_REF:$rel" 2>/dev/null \
+     && git -C "$root" diff --quiet "$BASE_REF" -- "$rel" 2>/dev/null \
+     && git -C "$root" show "$BASE_REF:$rel" 2>/dev/null | grep -qE "\\b(fn|struct|enum|trait|type|const|static|mod)\\s+$sym\\b"; then
+    note "\`$sym\` already existed at BASE_REF in $rel, unchanged: nothing to stub"
+    continue
+  fi
+  grep -q 'SUB-AGENT-TODO' "$file" \
+    || fail "\`$sym\` in $file has no SUB-AGENT-TODO panic — scaffolder implemented a body (forbidden)"
+done
+
+note "scaffold verified: ${symbols:+$(echo "$symbols" | wc -w | tr -d ' ') symbol(s) unique + stubbed}, no shims"
+# 5) Format: the stubs must pass the matrix's format check (GREEN fills bodies, not layout).
+run_format_checks
+
+exit 0
