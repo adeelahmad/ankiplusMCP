@@ -331,6 +331,50 @@ fn register_claude(app: tauri::AppHandle, source_roots: Option<Vec<String>>) -> 
     Ok(serde_json::to_value(reg).map_err(|e| e.to_string())?)
 }
 
+/// Checks a packaged build without opening a window (CI runs it on the installer's app):
+/// the bundled uv starts, the embedding model loads (when built in), and the wizard's
+/// index builds from `deck` into a temporary folder. Prints JSON; returns the exit code.
+pub fn self_test(deck: Option<&std::path::Path>, out: Option<&std::path::Path>) -> i32 {
+    let mut report = serde_json::Map::new();
+    let mut ok = true;
+    let uv = claude::bundled_uv();
+    let uv_version = uv.as_ref().and_then(|u| std::process::Command::new(u).arg("--version").output().ok()).filter(|o| o.status.success());
+    report.insert("uv_path".into(), serde_json::json!(uv.as_ref().map(|p| p.to_string_lossy().to_string())));
+    report.insert("uv".into(), serde_json::json!(uv_version.map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())));
+    ok &= report["uv"].is_string();
+    report.insert("server_spec".into(), serde_json::json!(claude::py_spec()));
+    report.insert("embed_feature".into(), serde_json::json!(cfg!(feature = "embed")));
+    if let Some(deck) = deck {
+        let tmp = std::env::temp_dir().join(format!("ankiplus-self-test-{}", std::process::id()));
+        let req = ankiplus_match::setup::NamedIndex {
+            collection: deck,
+            root: &tmp,
+            name: INDEX_NAME,
+            deck_prefix: None,
+            embeddings: if cfg!(feature = "embed") { EmbeddingMode::Required } else { EmbeddingMode::Off },
+            profile: false,
+        };
+        match ankiplus_match::setup::build_named_index(&req, &mut |_, _, _| {}) {
+            Ok(b) => {
+                ok &= b.notes > 0 && b.embeddings == cfg!(feature = "embed");
+                report.insert("index".into(), serde_json::to_value(b).unwrap_or_default());
+            }
+            Err(e) => {
+                ok = false;
+                report.insert("index_error".into(), serde_json::json!(e.to_string()));
+            }
+        }
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+    report.insert("ok".into(), serde_json::json!(ok));
+    let text = serde_json::Value::Object(report).to_string();
+    println!("{text}");
+    if let Some(out) = out {
+        let _ = std::fs::write(out, &text);
+    }
+    if ok { 0 } else { 1 }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()

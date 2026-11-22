@@ -6,11 +6,19 @@ name: Desktop installers
 # owner's Apple and Windows certificates, so these builds are unsigned (see
 # rust/docs/install-unsigned.md for the one-time right-click > Open step).
 
+# Every build is tested from the installer itself (the installed app's --self-test, then the
+# MCP server it registers is started once with the bundled uv). When all pass, the
+# installers are published as a GitHub pre-release (the workflow creates the tag, since
+# tags cannot be pushed from the build environment), so they download without a login.
+
 on:
   workflow_dispatch:
   push:
     branches: ["**"]
     paths: ["rust/**", "package.json", ".github/workflows/desktop-release.yml"]
+
+permissions:
+  contents: read
 
 # Installers take a while; a newer push waits for the running build instead of cancelling it.
 concurrency:
@@ -59,11 +67,41 @@ jobs:
           ls -l binaries
       - name: Build the installer
         run: npx --yes @tauri-apps/cli@2 build --target ${{ matrix.target }} --bundles ${{ matrix.bundle }} --config tauri.release.conf.json --features ${{ matrix.features }}
+      - name: Test the installed app (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          dmg=$(find ../../target/${{ matrix.target }}/release/bundle/dmg -name '*.dmg' | head -1)
+          if [ "${{ matrix.target }}" = x86_64-apple-darwin ]; then softwareupdate --install-rosetta --agree-to-license || true; fi
+          hdiutil attach -nobrowse -mountpoint /tmp/ankiplus "$dmg"
+          app=$(find /tmp/ankiplus -maxdepth 1 -name '*.app' | head -1)
+          ls -l "$app/Contents/MacOS"
+          codesign -dv "$app" 2>&1 | head -5 || true
+          main=$(find "$app/Contents/MacOS" -type f -perm -u+x ! -name 'uv*' | head -1)
+          arch -${{ matrix.target == 'x86_64-apple-darwin' && 'x86_64' || 'arm64' }} "$main" --self-test "$GITHUB_WORKSPACE/tests/fixtures/match/synthetic_anking.json" /tmp/self-test.json
+          cat /tmp/self-test.json
+          uv="$app/Contents/MacOS/uv"
+          python3 -c "import json,sys; r=json.load(open('/tmp/self-test.json')); sys.exit(0 if r['ok'] and r['uv_path'].endswith('Contents/MacOS/uv') else 1)"
+          spec=$(python3 -c "import json; print(json.load(open('/tmp/self-test.json'))['server_spec'])")
+          "$uv" tool run --from "$spec" ankiplusmcp --version
+          hdiutil detach /tmp/ankiplus
+      - name: Test the installed app (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          setup=$(find ../../target/${{ matrix.target }}/release/bundle/nsis -name '*-setup.exe' | head -1)
+          "$setup" //S
+          sleep 5
+          dir="$LOCALAPPDATA/AnkiPlus"
+          ls -l "$dir"
+          main=$(find "$dir" -maxdepth 1 -iname '*.exe' ! -iname 'uv*' ! -iname 'uninstall*' | head -1)
+          "$main" --self-test "$GITHUB_WORKSPACE/tests/fixtures/match/synthetic_anking.json" "$RUNNER_TEMP/self-test.json"
+          cat "$RUNNER_TEMP/self-test.json"
+          python -c "import json,sys; r=json.load(open(r'$RUNNER_TEMP/self-test.json')); sys.exit(0 if r['ok'] and r['uv_path'] else 1)"
+          spec=$(python -c "import json; print(json.load(open(r'$RUNNER_TEMP/self-test.json'))['server_spec'])")
+          "$dir/uv.exe" tool run --from "$spec" ankiplusmcp --version
       - name: Collect
         run: |
           mkdir -p ../../../dist-installer
           find ../../target/${{ matrix.target }}/release/bundle \( -name '*.dmg' -o -name '*-setup.exe' \) -exec cp {} ../../../dist-installer/ \;
-          cp ../../docs/install-unsigned.md ../../../dist-installer/README-install.md
           ls -l ../../../dist-installer
       - uses: actions/upload-artifact@v4
         with:
@@ -71,3 +109,27 @@ jobs:
           path: dist-installer/
           if-no-files-found: error
           retention-days: 30
+
+  release:
+    needs: installer
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Version
+        id: v
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: desktop-v${{ steps.v.outputs.version }}-test.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: AnkiPlus desktop ${{ steps.v.outputs.version }} (test build ${{ github.run_number }})
+          prerelease: true
+          body_path: rust/docs/install-unsigned.md
+          files: dist/*
+          fail_on_unmatched_files: true
