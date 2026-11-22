@@ -8,6 +8,7 @@ from .index import tokenize
 
 MIN_TOKENS = 4
 MAX_CHARS = 400
+MAX_LINES = 3   # a heading and its short bullets, not a whole column of them
 # '¢', '©', 'e' and '«' are how OCR commonly reads bullet glyphs.
 _BULLET = re.compile(r'^\s*(?:[-*•▪●–—>o¢©«‣◦]|e(?=\s+[A-Z])|\d{1,2}[.)])\s+')
 _INLINE_BULLET = re.compile(r'\s+[•¢▪●]\s+')
@@ -19,7 +20,12 @@ _CONTINUES = re.compile(r'[,(\-–/]$|\b(?:and|or|of|the|a|an|to|in|with|by|for|
 
 def _lines(text):
     """Logical lines: bullets stripped, wrapped sentences re-joined, trailing list numbers dropped."""
-    current = None
+    return (line for line, _ in _marked(text))
+
+
+def _marked(text):
+    """``_lines`` with, for each line, whether it was a bullet."""
+    current, mark = None, False
     for raw in (text or '').splitlines():
         for part in _INLINE_BULLET.split(raw):
             bulleted = bool(_BULLET.match(part))
@@ -31,22 +37,27 @@ def _lines(text):
                 current += ' ' + line
                 continue
             if current:
-                yield current
-            current = line
+                yield current, mark
+            current, mark = line, bulleted
     if current:
-        yield current
+        yield current, mark
 
 
-def _split(page, title, text):
-    pieces = []
-    for line in _lines(text):
-        if title and line.strip() == title.strip():
+def _split(page, title, text, skip=()):
+    pieces, joined, after_bullet = [], [], False
+    for line, bulleted in _marked(text):
+        if line in skip or (title and line.strip() == title.strip()):
             continue
-        if pieces and (len(tokenize(pieces[-1])) < MIN_TOKENS or len(tokenize(line)) < MIN_TOKENS) \
-                and len(pieces[-1]) + len(line) < MAX_CHARS:
+        short = len(tokenize(line)) < MIN_TOKENS
+        heading = not bulleted and (after_bullet or line.endswith(':'))   # starts the next group
+        after_bullet = bulleted
+        if pieces and not heading and (len(tokenize(pieces[-1])) < MIN_TOKENS or short) \
+                and len(pieces[-1]) + len(line) < MAX_CHARS and joined[-1] < MAX_LINES:
             pieces[-1] = pieces[-1] + ' ' + line
+            joined[-1] += 1
         else:
             pieces.append(line)
+            joined.append(1)
     out = []
     for piece in pieces:
         if len(tokenize(piece)) >= 2:
@@ -65,8 +76,7 @@ def chunks_from_slides(slides):
     boiler = {line for line, n in seen.items() if n >= limit}
     out = []
     for slide in slides:
-        text = '\n'.join(l for l in _lines(slide.get('text', '')) if l not in boiler)
-        out.extend(_split(slide['n'], slide.get('title', ''), text))
+        out.extend(_split(slide['n'], slide.get('title', ''), slide.get('text', ''), boiler))
     return out
 
 
@@ -88,16 +98,85 @@ def looks_garbled(text):
 
 
 def ocr_page(page, zoom=3):
-    """OCR one PDF page with the system tesseract (same program the extractor uses)."""
+    """OCR one PDF page with the system tesseract (same program the extractor uses).
+
+    The page is rendered in grey (tesseract drops coloured headings such as red or
+    purple slide titles from a colour image) and read column by column."""
     import shutil, subprocess, tempfile, os
     if not shutil.which('tesseract'):
         return ''
-    pix = page.get_pixmap(matrix=__import__('pymupdf').Matrix(zoom, zoom), alpha=False)
+    import pymupdf
+    pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False, colorspace=pymupdf.csGRAY)
     with tempfile.TemporaryDirectory() as tmp:
         image = os.path.join(tmp, 'page.png')
         pix.save(image)
-        run = subprocess.run(['tesseract', image, 'stdout', '--psm', '3', '-l', 'eng'], capture_output=True, text=True, timeout=120)
-    return run.stdout if run.returncode == 0 else ''
+        run = subprocess.run(['tesseract', image, 'stdout', '--psm', '3', '-l', 'eng', 'tsv'], capture_output=True, text=True, timeout=120)
+    return ocr_layout(run.stdout) if run.returncode == 0 else ''
+
+
+def _segments(words):
+    """Words of one tesseract line, split where the gap is wider than 2.5 line heights."""
+    words.sort()
+    h = max(1, sorted(w[3] for w in words)[len(words) // 2])
+    segs, seg = [], [words[0]]
+    for w in words[1:]:
+        if w[0] - (seg[-1][0] + seg[-1][2]) > 2.5 * h:
+            segs.append(seg); seg = []
+        seg.append(w)
+    segs.append(seg)
+    return [{'left': s[0][0], 'right': s[-1][0] + s[-1][2], 'top': min(w[1] for w in s),
+             'text': ' '.join(w[4] for w in s)} for s in segs]
+
+
+def _gutters(segs):
+    """x positions in the middle of a block that no narrow segment crosses."""
+    lo, hi = min(s['left'] for s in segs), max(s['right'] for s in segs)
+    span = hi - lo
+    narrow = [s for s in segs if s['right'] - s['left'] <= span * .5]
+    if span <= 0 or len(narrow) < 4:
+        return []
+    cover = bytearray(span + 1)
+    for s in narrow:
+        cover[s['left'] - lo:s['right'] - lo + 1] = b'\1' * (s['right'] - s['left'] + 1)
+    found, start = [], None
+    for x in range(int(span * .2), int(span * .8) + 1):
+        if not cover[x] and start is None:
+            start = x
+        elif cover[x] and start is not None:
+            if x - start >= span * .03:
+                found.append(lo + (start + x) / 2)
+            start = None
+    return found
+
+
+def _order(segs):
+    """Column by column. A line that starts in the first column and crosses a gutter
+    (a heading across the page) closes the band of columns above it."""
+    cuts = _gutters(segs)
+    out, band = [], []
+    def flush():
+        band.sort(key=lambda s: (sum(s['left'] > c for c in cuts), s['top'], s['left']))
+        out.extend(band); band.clear()
+    for s in sorted(segs, key=lambda s: (s['top'], s['left'])):
+        if cuts and s['left'] < cuts[0] < s['right']:
+            flush(); out.append(s)
+        else:
+            band.append(s)
+    flush()
+    return out
+
+
+def ocr_layout(tsv):
+    """Reading order for tesseract TSV output. Tesseract sometimes reads side-by-side
+    columns straight across; lines are split at wide gaps and read column by column."""
+    lines = {}
+    for row in tsv.splitlines()[1:]:
+        f = row.split('\t')
+        if len(f) < 12 or f[0] != '5' or not f[11].strip():
+            continue
+        lines.setdefault(tuple(f[1:5]), []).append((*map(int, f[6:10]), f[11]))
+    segs = [s for words in lines.values() for s in _segments(words)]
+    return '\n'.join(s['text'] for s in _order(segs)) if segs else ''
 
 
 def pdf_pages(path, pages=None, ocr=True):
@@ -201,7 +280,7 @@ def _ocr_clip(page, rect, zoom=4):
     import pymupdf
     if not shutil.which('tesseract'):
         return ''
-    pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), clip=rect + (-2, -2, 2, 2), alpha=False)
+    pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), clip=rect + (-2, -2, 2, 2), alpha=False, colorspace=pymupdf.csGRAY)
     with tempfile.TemporaryDirectory() as tmp:
         image = os.path.join(tmp, 'clip.png')
         pix.save(image)
