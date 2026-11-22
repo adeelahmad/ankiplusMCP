@@ -449,3 +449,30 @@ def test_written_cards_join_the_index_at_once(tmp_path, deck, monkeypatch):
             s.index_written_cards(w, [{'draft_id': 'nope', 'note_id': 901}])
     finally:
         s.close()
+
+
+def _tsv(lines):
+    rows = ['level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext']
+    for n, (top, words) in enumerate(lines, 1):
+        for w, (left, text) in enumerate(words, 1):
+            rows.append(f'5\t1\t1\t1\t{n}\t{w}\t{left}\t{top}\t{len(text) * 20}\t30\t90\t{text}')
+    return '\n'.join(rows)
+
+
+def test_ocr_layout_reads_columns_separately():
+    from ankiplusmcp.match.chunks import ocr_layout
+    # Tesseract read two columns straight across; each line holds both.
+    tsv = _tsv([(10, [(10, 'Title'), (130, 'across'), (280, 'the'), (360, 'whole'), (480, 'slide'), (620, 'width'), (760, 'here')]),
+                (100, [(10, 'Predisposing'), (1000, 'Candidiasis')]),
+                (150, [(10, 'Poor'), (110, 'hygiene'), (1000, 'White'), (1120, 'patches')]),
+                (200, [(10, 'Immunocompromised'), (1000, 'Dysphagia')])])
+    assert ocr_layout(tsv).splitlines() == ['Title across the whole slide width here', 'Predisposing', 'Poor hygiene',
+                                            'Immunocompromised', 'Candidiasis', 'White patches', 'Dysphagia']
+
+
+def test_headings_start_a_new_chunk():
+    from ankiplusmcp.match.chunks import chunks_from_slides
+    text = 'Predisposing Factors:\n• Poor oral hygiene\n• Immunocompromised conditions\nTypes of Stomatitis\n• Ulcerative stomatitis'
+    chunks = [c['text'] for c in chunks_from_slides([{'n': 1, 'title': '', 'text': text}])]
+    assert chunks == ['Predisposing Factors: Poor oral hygiene Immunocompromised conditions',
+                      'Types of Stomatitis Ulcerative stomatitis']
