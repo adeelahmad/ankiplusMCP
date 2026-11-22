@@ -225,7 +225,7 @@ class Matching:
         return {'match_id': match_id, 'summary': report['summary'], 'chunk_origin': origin, 'embeddings': report['embeddings'],
                 'artifacts': {'report': f'{base}/report.json', 'unsuspend': f'{base}/unsuspend.json', 'prompt': f'{base}/prompt.md'},
                 'performed_anki_operations': 0, **({'index_synced': {k: synced[k] for k in ('notes', 'embedded', 'reused')}} if synced else {}),
-                'next': 'Read the prompt artifact to draft only the gaps. Call prepare_unsuspend to show the user the cards, unsuspend the approved CARD ids through Anki MCP, then record_unsuspend.'}
+                'next': 'Read the prompt artifact to draft only the gaps. Judge the proposals and candidates in the unsuspend artifact (card question and answer only), then call prepare_unsuspend with exclude_note_ids/include_note_ids to show the user the cards, unsuspend the approved CARD ids through Anki MCP, then record_unsuspend.'}
 
     # -- unsuspend: preview -> user approval -> Anki MCP -> log -------------
     def _unsuspended_path(self, index):
@@ -249,7 +249,7 @@ class Matching:
             raise DomainError('MATCH', 'Invalid match ID.')
         return match_id
 
-    def prepare_unsuspend(self, workspace, match_id=None, exclude_note_ids=None, offset=0, limit=50):
+    def prepare_unsuspend(self, workspace, match_id=None, exclude_note_ids=None, offset=0, limit=50, include_note_ids=None):
         """The list to show the user: each note with the lecture lines it matched. Writes the approved CARD ids."""
         match_id = self._match_id(workspace, match_id)
         report = self.store.read_json(workspace, f'match/{match_id}/report.json')
@@ -257,7 +257,17 @@ class Matching:
         excluded = set(exclude_note_ids or [])
         done = self._unsuspended(report.get('index', 'anking'))
         notes = []
-        for entry in report['unsuspend']['notes']:
+        included = set(include_note_ids or [])
+        entries = list(report['unsuspend']['notes'])
+        for cand in report['unsuspend'].get('candidates', []):
+            if cand['note_id'] in included:
+                lines = ' '.join(texts.get(c, '') for c in cand['chunks'])
+                terms = set(match.tokenize(lines))
+                testing = [c['card_id'] for c in cand['cards'] if set(match.tokenize(c['answer'])) & terms]
+                cards = testing or [c['card_id'] for c in cand['cards']] or cand.get('suspended_card_ids', [])
+                entries.append({'note_id': cand['note_id'], 'card_ids': cards, 'reason': 'judged', 'preview': cand['preview'],
+                                'chunks': cand['chunks'], 'cards': cand['cards'], 'answer_in_lecture': bool(testing)})
+        for entry in entries:
             if entry['note_id'] in excluded:
                 continue
             cards = [c for c in entry['card_ids'] if c not in done]
@@ -269,7 +279,8 @@ class Matching:
         card_ids = sorted({c for n in notes for c in n['card_ids']})
         artifact = f'match/{match_id}/unsuspend-approved.json'
         self.store.write_json(workspace, artifact, {'match_id': match_id, 'card_ids': card_ids, 'note_ids': [n['note_id'] for n in notes],
-                                                    'excluded_note_ids': sorted(excluded), 'performed_anki_operations': 0})
+                                                    'excluded_note_ids': sorted(excluded), 'included_note_ids': sorted(included),
+                                                    'performed_anki_operations': 0})
         return {'match_id': match_id, 'cards': len(card_ids), 'notes': notes[offset:offset + limit], 'total_notes': len(notes),
                 'card_ids': card_ids, 'artifact': artifact,
                 'instructions': 'First judge each note yourself: keep it only if a card\'s question and answer (in cards; not '

@@ -88,6 +88,16 @@ needed on a real deck, where long Extras contain most words of any short lecture
 that shares fewer than two words with the chunk scores half, and numbers count a quarter of a
 word. With embeddings the score is `0.3 × lexical + 0.7 × cosine` when that is higher.
 
+**Named answers and headings.** A lecture line that names a card's hidden answer ("Dysentery:
+blood and mucus in stools" against "...is known as {{c1::dysentery}}") brings that card in as a
+candidate even when the wording differs. Answers of up to four words count when they are specific
+(summed IDF at least 6). A bullet is searched with the heading it sits under ("Sialadenitis" for
+"Commonly due to mumps"). On Hamza's two lectures this raised the share of the legacy run's
+hand-picked cards found among the candidates from 27 of 39 to 38 of 39.
+
+A matched card that states a different number with the same unit (2.5 vs 3 mg/dL) is a
+**conflict**: not proposed, and the prompt asks for a lecture card that names the difference.
+
 **Concept mapping.** For covered and related chunks, notes sharing the most specific AnKing topic
 tag (for example `…::Upper_Limb::Brachial_Plexus`) are listed as concept neighbours, so a lecture
 on thoracic outlet syndrome also surfaces the brachial plexus cards. Question-bank ID tags and
@@ -96,8 +106,12 @@ tags with more than 150 notes are ignored. Neighbours are only unsuspended with
 
 **Nothing is changed in Anki.** The unsuspend flow is:
 
-1. `prepare_unsuspend` lists each proposed note with the lecture lines it matched.
-2. The user rejects any that don't fit; call it again with `exclude_note_ids`.
+1. The host (Claude) judges each proposal and each candidate in `unsuspend.json` by the card's
+   question and answer, not its Extra. Proposals carry only the cloze siblings whose hidden answer
+   is in the lecture line. Candidates are notes below `covered` (`answer_named`: the card hides a
+   term the line names, such as "dysentery").
+2. `prepare_unsuspend` with `exclude_note_ids` (rejected) and `include_note_ids` (accepted
+   candidates) lists each note with the lecture lines it matched; the user rejects any more.
 3. The host unsuspends the returned CARD ids through the Anki MCP.
 4. `record_unsuspend` logs the result. Later lectures skip cards already unsuspended
    (`already_unsuspended` in the summary).

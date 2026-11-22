@@ -226,9 +226,10 @@ class API:
 
     def prepare_unsuspend(self, workspace: Workspace, match_id: Workspace | None=None,
                           exclude_note_ids: Annotated[list[Annotated[int,Field(gt=0)]],Field(max_length=5000)] | None=None,
-                          offset: Offset=0, limit: Limit=50) -> dict:
-        """Preview the cards a match proposes to unsuspend: each note with the lecture lines it matched, minus cards already unsuspended. Pass exclude_note_ids for notes the user rejects. Returns the approved CARD ids for the Anki MCP; performs zero Anki operations."""
-        return self.s.prepare_unsuspend(workspace,match_id,exclude_note_ids,offset,limit)
+                          offset: Offset=0, limit: Limit=50,
+                          include_note_ids: Annotated[list[Annotated[int,Field(gt=0)]],Field(max_length=5000)] | None=None) -> dict:
+        """Preview the cards a match proposes to unsuspend: each note with the lecture lines it matched, minus cards already unsuspended. Pass exclude_note_ids for notes you or the user reject, and include_note_ids for candidates (unsuspend.json) you judged to test a lecture line. Returns the approved CARD ids for the Anki MCP; performs zero Anki operations."""
+        return self.s.prepare_unsuspend(workspace,match_id,exclude_note_ids,offset,limit,include_note_ids)
 
     def record_unsuspend(self, workspace: Workspace, card_ids: Annotated[list[Annotated[int,Field(gt=0)]],Field(min_length=1,max_length=5000)],
                          status: Literal['success','failed','ambiguous'], match_id: Workspace | None=None,

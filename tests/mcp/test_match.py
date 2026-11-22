@@ -524,3 +524,24 @@ def test_form_problems_list_clozes_and_cut_sentences():
     assert form_problems('Causes: {{c1::dehydration}}, {{c1::Sjogren}}, {{c1::radiotherapy}}')[0].startswith('c1 hides 3')
     assert form_problems('Causes: {{c1::dehydration}}, {{c2::Sjogren}}, {{c3::radiotherapy}}') == []
     assert 'unpaired' in form_problems('two or more of: {{c2::25%}} of defecations)')[0]
+
+
+def test_named_answer_reaches_candidates_and_can_be_included(monkeypatch):
+    monkeypatch.setattr(match.DeckIndex, 'ANSWER_MIN_WEIGHT', 0.5)   # a 2-note deck has no rare terms
+    notes = [_note(1, 'Bloody diarrhoea due to infection is known as dysentery', [11], {11: 'dysentery'}),
+             _note(2, 'Hematochezia is bright red blood in the stool', [21], {21: 'bright red blood'})]
+    index = match.DeckIndex(notes)
+    assert index.answered('Dysentery: frequent watery stools with blood and mucus') == {0}
+    hit = index.search('Dysentery: frequent watery stools with blood and mucus', k=2)[0]
+    assert hit['doc'] == 0 and hit['answer_named']
+    chunks = [{'id': 'p1-1', 'page': 1, 'title': '', 'text': 'Dysentery: frequent watery stools with blood and mucus'}]
+    report = match.match_chunks(index, chunks, match.Thresholds(covered=.95, related=.3))
+    assert report['unsuspend']['card_ids'] == [] and report['unsuspend']['candidates'][0]['note_id'] == 1
+    assert report['summary']['candidates_to_judge'] >= 1 and 'include_note_ids' in report['unsuspend']['instructions']
+
+
+def test_chunks_keep_their_heading_as_context():
+    from ankiplusmcp.match.chunks import chunks_from_slides
+    text = 'Sialadenitis\n• Acute inflammation of salivary glands\n• Commonly due to mumps or bacterial infection'
+    chunks = chunks_from_slides([{'n': 1, 'title': '', 'text': text}])
+    assert chunks[-1]['text'].startswith('Commonly due to mumps') and chunks[-1]['context'] == 'Sialadenitis'
