@@ -5,7 +5,9 @@ an empty ``note_ids`` means the fact has no existing card (a true gap).
 """
 
 
-def evaluate(index, labels, k=5, covered=0.6):
+def evaluate(index, labels, k=5, covered=None):
+    from .matcher import Thresholds
+    covered = Thresholds(covered=covered).resolve(index.vectors is not None).covered
     found = expected = true_gaps = flagged_gaps = false_gaps = 0
     misses = []
     for label in labels:

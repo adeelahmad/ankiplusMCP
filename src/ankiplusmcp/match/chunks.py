@@ -12,6 +12,7 @@ MAX_CHARS = 400
 _BULLET = re.compile(r'^\s*(?:[-*•▪●–—>o¢©«‣◦]|e(?=\s+[A-Z])|\d{1,2}[.)])\s+')
 _INLINE_BULLET = re.compile(r'\s+[•¢▪●]\s+')
 _CAPTION = re.compile(r'^(?:Figure|Fig\.|Image|Source)\s*\d*\s*[:.]', re.I)
+_CITATION = re.compile(r'\b(?:ed\.|edn|editors?|Elsevier|Wolters|Kluwer|Springer|Saunders|McGraw|Thieme|Lippincott)\b.*\b(?:19|20)\d{2}\b|\b(?:19|20)\d{2}\b.*\b(?:Elsevier|Wolters|Kluwer|Springer|Saunders|Lippincott)\b', re.I)
 _LIST_NUMBER = re.compile(r'(?<=[A-Za-z:)])\s+\d{1,2}$')
 _CONTINUES = re.compile(r'[,(\-–/]$|\b(?:and|or|of|the|a|an|to|in|with|by|for|from|as|at|on|is|are)$', re.I)
 
@@ -23,8 +24,8 @@ def _lines(text):
         for part in _INLINE_BULLET.split(raw):
             bulleted = bool(_BULLET.match(part))
             line = _LIST_NUMBER.sub('', _BULLET.sub('', part).strip())
-            if not re.search(r'[A-Za-z]{2}', line) or _CAPTION.match(line):
-                continue   # page numbers, list numbers, figure credits
+            if not re.search(r'[A-Za-z]{2}', line) or _CAPTION.match(line) or _CITATION.search(line):
+                continue   # page numbers, list numbers, figure credits, references
             if current and not bulleted and (_CONTINUES.search(current) or line[0].islower() or line[0] in '(['
                                             or current.count('(') > current.count(')')):
                 current += ' ' + line

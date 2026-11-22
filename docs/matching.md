@@ -49,10 +49,10 @@ match_source {"workspace":"W","index":"anking"}
 
 The lecture (or the user's PDF highlights, if given) is split into fact-sized chunks. Each chunk is:
 
-- **covered**: the best note's score ≥ `covered` (default 0.6). Its suspended cards go into
-  `unsuspend.json`.
-- **related**: score ≥ `related` (0.35). The prompt shows the existing card so the AI drafts only
-  what is missing.
+- **covered**: the best note's score ≥ `covered` (default 0.35 with BM25 only, 0.55 with
+  embeddings). Its suspended cards go into `unsuspend.json`.
+- **related**: score ≥ `related` (default 0.2 / 0.4). The prompt shows the existing card so the AI
+  drafts only what is missing.
 - **gap**: no existing card. Listed in `prompt.md` for drafting.
 
 Score = the IDF-weighted share of the chunk's terms that a note contains, raised by embedding
@@ -74,7 +74,16 @@ wording has little support on any page.
 
 ## Tuning the thresholds
 
-The defaults are starting points, not calibrated values. Label one lecture by hand
+The defaults come from `scripts/match_benchmark.py`: a synthetic deck written in AnKing cloze style
+(72 notes, not AnKing content) and 54 facts paraphrased from two real lectures. Each default is
+the highest threshold with no wrong unsuspensions:
+
+| Mode | covered | precision | recall | recall@5 |
+|---|---|---|---|---|
+| BM25 only | 0.35 | 1.00 | 0.89 | 0.96 |
+| BM25 + Nomic embeddings | 0.55 | 1.00 | 0.89 | 1.00 |
+
+A real 30k-note deck has far more near-duplicates, so re-check on a real export. Label one lecture by hand
 (`[{"text": "<fact>", "note_ids": [<AnKing note ids>]}]`, empty list for facts with no card) and run:
 
 ```
