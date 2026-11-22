@@ -206,7 +206,7 @@ def test_garbled_pdf_text_and_line_joining():
 def test_threshold_defaults_follow_the_index_mode():
     t = match.Thresholds()
     assert (t.resolve(False).covered, t.resolve(False).related) == (.5, .35)
-    assert (t.resolve(True).covered, t.resolve(True).related) == (.55, .4)
+    assert (t.resolve(True).covered, t.resolve(True).related) == (.7, .62)
     assert match.Thresholds(covered=.7).resolve(True).covered == .7
 
 

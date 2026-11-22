@@ -56,8 +56,8 @@ def main(argv=None):
     p.add_argument('--index-dir', default=str(Path.home() / '.cache' / 'ankiplusmcp' / 'indexes'))
     p.add_argument('--backend', choices=['file', 'postgres'], default='file')
     p.add_argument('--embeddings', choices=['auto', 'off', 'required'], default='auto')
-    p.add_argument('--covered', type=float, default=None, help='default: 0.5 BM25 only, 0.55 with embeddings')
-    p.add_argument('--related', type=float, default=None, help='default: 0.35 BM25 only, 0.4 with embeddings')
+    p.add_argument('--covered', type=float, default=None, help='default: 0.5 BM25 only, 0.7 with embeddings')
+    p.add_argument('--related', type=float, default=None, help='default: 0.35 BM25 only, 0.62 with embeddings')
     p.add_argument('--rebuild', action='store_true')
     args = p.parse_args(argv)
     try:

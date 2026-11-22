@@ -49,9 +49,9 @@ match_source {"workspace":"W","index":"anking"}
 
 The lecture (or the user's PDF highlights, if given) is split into fact-sized chunks. Each chunk is:
 
-- **covered**: the best note's score ≥ `covered` (default 0.5 with BM25 only, 0.55 with
+- **covered**: the best note's score ≥ `covered` (default 0.5 with BM25 only, 0.7 with
   embeddings). Its suspended cards go into `unsuspend.json`.
-- **related**: score ≥ `related` (default 0.35 / 0.4). The prompt shows the existing card so the AI
+- **related**: score ≥ `related` (default 0.35 / 0.62). The prompt shows the existing card so the AI
   drafts only what is missing.
 - **gap**: no existing card. Listed in `prompt.md` for drafting.
 
@@ -59,7 +59,7 @@ Score = the geometric mean of two IDF-weighted shares: how much of the chunk the
 and how much of the note's first field (its fact, not the Extra) the chunk contains. Both are
 needed on a real deck, where long Extras contain most words of any short lecture line. A note
 that shares fewer than two words with the chunk scores half, and numbers count a quarter of a
-word. Embedding similarity raises the score when that is higher.
+word. With embeddings the score is `0.3 × lexical + 0.7 × cosine` when that is higher.
 
 **Concept mapping.** For covered and related chunks, notes sharing the most specific AnKing topic
 tag (for example `…::Upper_Limb::Brachial_Plexus`) are listed as concept neighbours, so a lecture
@@ -109,10 +109,21 @@ The labels are incomplete, so it is a lower bound:
 | **0.50 (default)** | 0.75 | 0.35 |
 | 0.55 | 0.92 | 0.25 |
 
-Most remaining errors share words but not meaning (for example "the tongue deviates toward the
-lesion" against a card on the trachea deviating in atelectasis). Embeddings target those. The
-embedding defaults (0.55 / 0.4) still come from the synthetic benchmark below and are being
-re-checked on the real deck.
+Most remaining BM25 errors share words but not meaning (for example "the tongue deviates toward
+the lesion" against a card on the trachea deviating in atelectasis). With Nomic embeddings, on
+the same labels:
+
+| BM25 + Nomic, covered | precision | recall | true gaps marked covered |
+|---|---|---|---|
+| 0.55 with the old score (mean of both) | 0.43 | 0.68 | many |
+| 0.66 | 0.62 | 0.55 | 6 |
+| **0.70 (default)** | 0.88 | 0.40 | 0 |
+| 0.72 | 0.89 | 0.30 | 0 |
+
+Related defaults to 0.62 (recall 0.70), so most remaining matches still reach the AI as existing
+cards to check. Nomic cosines on medical text sit in a narrow band (0.6–0.8), which is why the
+embedding thresholds are higher than the BM25 ones. Embedding all 33,078 notes took 48 minutes
+on 4 cloud CPUs; a recent laptop is faster, and it happens once per deck.
 
 **Synthetic benchmark.** `scripts/match_benchmark.py` uses a deck written in AnKing cloze style
 (72 notes, not AnKing content) and 54 facts paraphrased from two real lectures. At covered 0.5
