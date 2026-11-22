@@ -8,7 +8,7 @@
 //! - `lexical`: geometric mean of `overlap` and `reverse`, halved unless the first field
 //!   shares at least two non-number words with the query,
 //! - `cosine`: embedding similarity (0..1) when embeddings exist, else `None`,
-//! - `score`: `lexical`, raised to the mean of `lexical` and `cosine` when that is higher.
+//! - `score`: `lexical`, raised to `0.3 * lexical + 0.7 * cosine` when that is higher.
 //!
 //! Numbers weigh a quarter of a word. Candidates (BM25 top 50, the 200 notes sharing the
 //! most query weight, dense top 50) are merged by reciprocal rank fusion (k = 60).
@@ -233,7 +233,7 @@ impl DeckIndex {
                 let cosine = cos.as_ref().map(|c| (c[doc] as f64).max(0.0));
                 let score = match cosine {
                     None => lex,
-                    Some(c) => lex.max((lex + c) / 2.0),
+                    Some(c) => lex.max(0.3 * lex + 0.7 * c),
                 };
                 Hit {
                     doc,

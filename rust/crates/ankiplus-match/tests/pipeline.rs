@@ -193,7 +193,7 @@ fn cache_key_matches_python_format() {
 fn threshold_defaults_follow_the_index_mode() {
     let t = Thresholds::default();
     assert_eq!((t.resolve(false).covered, t.resolve(false).related), (Some(0.5), Some(0.35)));
-    assert_eq!((t.resolve(true).covered, t.resolve(true).related), (Some(0.55), Some(0.4)));
+    assert_eq!((t.resolve(true).covered, t.resolve(true).related), (Some(0.7), Some(0.62)));
     assert_eq!(Thresholds { covered: Some(0.7), ..Default::default() }.resolve(true).covered, Some(0.7));
 }
 
