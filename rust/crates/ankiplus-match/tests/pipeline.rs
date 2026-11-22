@@ -146,7 +146,7 @@ fn match_unsuspend_prompt() {
 fn embeddings_and_file_store() {
     let tmp = tempfile::tempdir().unwrap();
     let mut index = DeckIndex::new(anking(tmp.path()), Some(Box::new(FakeEmbedder)), Default::default());
-    index.embed_all(256, |_, _| {}).unwrap();
+    index.embed_all(256, |_, _| {}, None).unwrap();
     let q = "troponin rises after myocardial infarction";
     let hit = index.search(q, 10, 50).unwrap().remove(0);
     assert!(hit.cosine.is_some());
@@ -263,4 +263,129 @@ fn schema18_collection_with_unicase_indexes() {
     let notes = load_deck(&path, &LoadOptions::default()).unwrap();
     assert!(notes[0].fields["Text"].starts_with("The buccinator"));
     assert_eq!(notes[0].front.as_deref(), Some("The buccinator is the muscle of the cheek"));
+}
+
+#[test]
+fn anki_profiles() {
+    use ankiplus_match::profiles::{anki_base_with, collection_for, list_profiles};
+    use std::path::Path;
+    let home = Path::new("/h");
+    let none = |_: &str| None;
+    assert_eq!(anki_base_with(&none, "darwin", home), home.join("Library/Application Support/Anki2"));
+    assert_eq!(anki_base_with(&none, "linux", home), home.join(".local/share/Anki2"));
+    assert_eq!(anki_base_with(&|k: &str| (k == "XDG_DATA_HOME").then(|| "/x".to_string()), "linux", home), Path::new("/x/Anki2"));
+    assert_eq!(anki_base_with(&|k: &str| (k == "APPDATA").then(|| "/r".to_string()), "win32", home), Path::new("/r/Anki2"));
+    assert_eq!(anki_base_with(&none, "win32", home), home.join("AppData/Roaming/Anki2"));
+    assert_eq!(anki_base_with(&|k: &str| (k == "ANKI_BASE").then(|| "~/b".to_string()), "darwin", home), home.join("b"));
+
+    let tmp = tempfile::tempdir().unwrap();
+    let base = tmp.path();
+    assert!(collection_for(None, Some(base)).unwrap_err().to_string().contains("No Anki profiles"));
+    for name in ["addons21", "Hamza", "User 1"] {
+        std::fs::create_dir_all(base.join(name)).unwrap();
+        std::fs::write(base.join(name).join("collection.anki2"), b"x").unwrap();
+    }
+    std::fs::create_dir_all(base.join("empty")).unwrap();
+    let found: Vec<String> = list_profiles(Some(base)).into_iter().map(|p| p.profile).collect();
+    assert_eq!(found, vec!["Hamza", "User 1"]);
+    assert_eq!(collection_for(None, Some(base)).unwrap(), base.join("User 1").join("collection.anki2"));
+    assert_eq!(collection_for(Some("Hamza"), Some(base)).unwrap(), base.join("Hamza").join("collection.anki2"));
+    assert!(collection_for(Some("Nope"), Some(base)).unwrap_err().to_string().contains("Profiles: Hamza, User 1"));
+    std::fs::remove_dir_all(base.join("User 1")).unwrap();
+    assert_eq!(collection_for(None, Some(base)).unwrap(), base.join("Hamza").join("collection.anki2"));
+}
+
+/// Counts embedded texts, to check that unchanged notes keep their vectors.
+struct CountingEmbedder(std::sync::Arc<std::sync::atomic::AtomicUsize>);
+
+impl ankiplus_match::Embedder for CountingEmbedder {
+    fn name(&self) -> String {
+        FakeEmbedder.name()
+    }
+    fn embed_documents(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, ankiplus_match::Error> {
+        self.0.fetch_add(texts.len(), std::sync::atomic::Ordering::SeqCst);
+        FakeEmbedder.embed_documents(texts)
+    }
+    fn embed_query(&self, text: &str) -> Result<Vec<f32>, ankiplus_match::Error> {
+        FakeEmbedder.embed_query(text)
+    }
+}
+
+#[test]
+fn embed_all_reuses_unchanged_notes_and_written_cards_join_the_index() {
+    use std::sync::{atomic::{AtomicUsize, Ordering}, Arc};
+    let tmp = tempfile::tempdir().unwrap();
+    let notes = anking(tmp.path());
+    let mut old = DeckIndex::new(notes.clone(), Some(Box::new(FakeEmbedder)), Default::default());
+    assert_eq!(old.embed_all(256, |_, _| {}, None).unwrap(), ankiplus_match::EmbedCounts { embedded: 5, reused: 0 });
+
+    let mut edited = notes.clone();
+    edited[0].text.push_str(" edited");
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut fresh = DeckIndex::new(edited, Some(Box::new(CountingEmbedder(calls.clone()))), Default::default());
+    let counts = fresh.embed_all(256, |_, _| {}, Some(&old)).unwrap();
+    assert_eq!((counts.embedded, counts.reused, calls.load(Ordering::SeqCst)), (1, 4, 1));
+    assert_eq!(fresh.vectors.as_ref().unwrap()[1], old.vectors.as_ref().unwrap()[1]);
+
+    // Another model: nothing is reused.
+    old.meta.insert("embedding_model".into(), "other".into());
+    let mut again = DeckIndex::new(notes.clone(), Some(Box::new(FakeEmbedder)), Default::default());
+    assert_eq!(again.embed_all(256, |_, _| {}, Some(&old)).unwrap().reused, 0);
+
+    // Written cards: added (or replacing the same note id), only they are embedded.
+    let written = vec![pipeline::WrittenCard {
+        note_id: 9001,
+        card_ids: vec![90011],
+        deck: "ColdRecall".into(),
+        tags: vec!["#ColdRecall::#Source::MED241::L025".into()],
+        fields: vec!["The {{c1::sinoatrial}} node paces the heart".into(), "<b>Extra</b> line".into(), "ignored".into()],
+    }];
+    let deck = make_collection(&tmp.path().join("c.anki2"));
+    let index_dir = tmp.path().join("indexes");
+    let req = pipeline::IndexRequest {
+        deck: &deck,
+        deck_prefix: None,
+        index_dir: &index_dir,
+        embeddings: pipeline::EmbeddingMode::Off,
+        backend: pipeline::Backend::File,
+        rebuild: false,
+    };
+    let base = pipeline::open_index(&req, |_| {}).unwrap();
+    let (grown, counts, added) = pipeline::index_written_cards(&req, &base, &written).unwrap();
+    assert_eq!((added, counts.embedded, grown.notes.len()), (1, 0, base.notes.len() + 1));
+    let note = grown.notes.last().unwrap();
+    assert_eq!(note.text, "The sinoatrial node paces the heart\nExtra line");
+    assert_eq!(note.front.as_deref(), Some("The sinoatrial node paces the heart"));
+    assert_eq!(grown.search("sinoatrial node paces heart", 3, 50).unwrap()[0].doc, grown.notes.len() - 1);
+    // The cached index has the new note, and the deck stamp is kept.
+    let reopened = pipeline::open_index(&req, |_| {}).unwrap();
+    assert_eq!(reopened.notes.len(), grown.notes.len());
+}
+
+#[test]
+fn changed_deck_updates_the_same_cache_folder() {
+    let tmp = tempfile::tempdir().unwrap();
+    let deck = make_collection(&tmp.path().join("c.anki2"));
+    let index_dir = tmp.path().join("indexes");
+    let req = pipeline::IndexRequest {
+        deck: &deck,
+        deck_prefix: None,
+        index_dir: &index_dir,
+        embeddings: pipeline::EmbeddingMode::Off,
+        backend: pipeline::Backend::File,
+        rebuild: false,
+    };
+    let mut msgs = vec![];
+    pipeline::open_index(&req, |m| msgs.push(m.to_string())).unwrap();
+    pipeline::open_index(&req, |m| msgs.push(m.to_string())).unwrap();
+    assert_eq!(msgs.iter().filter(|m| m.starts_with("indexing")).count(), 1);
+    let key = pipeline::cache_key(&deck, None, pipeline::EmbeddingMode::Off).unwrap();
+    let meta: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(index_dir.join(&key).join("meta.json")).unwrap()).unwrap();
+    assert_eq!(meta["deck_stamp"], pipeline::deck_stamp(&deck).unwrap());
+    // Touch the deck: same folder, rebuilt.
+    let f = std::fs::OpenOptions::new().append(true).open(&deck).unwrap();
+    f.set_modified(std::time::SystemTime::now() + std::time::Duration::from_secs(5)).unwrap();
+    pipeline::open_index(&req, |m| msgs.push(m.to_string())).unwrap();
+    assert_eq!(msgs.iter().filter(|m| m.starts_with("indexing")).count(), 2);
+    assert_eq!(std::fs::read_dir(&index_dir).unwrap().count(), 1);
 }

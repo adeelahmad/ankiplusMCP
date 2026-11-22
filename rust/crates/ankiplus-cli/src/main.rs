@@ -4,6 +4,7 @@
 //! ankiplus match --deck AnKing.apkg --pdf lecture.pdf --out builds/L025
 //! ankiplus match --deck AnKing.apkg --highlights highlights.json --out builds/L025
 //! ankiplus match --deck AnKing.apkg --evaluate labels.json
+//! ankiplus match --profile "User 1" --pdf lecture.pdf --out builds/L025   # no export
 //! ankiplus check --cards drafts.json --text lecture.md
 //! ```
 //!
@@ -78,8 +79,11 @@ struct Source {
 #[derive(Args)]
 struct MatchArgs {
     /// .apkg, .colpkg, .anki2 or .json/.jsonl note list
-    #[arg(long)]
-    deck: PathBuf,
+    #[arg(long, required_unless_present = "profile", conflicts_with = "profile")]
+    deck: Option<PathBuf>,
+    /// Read this Anki profile's collection directly (no export); no name = the only profile or 'User 1'
+    #[arg(long, num_args = 0..=1, default_missing_value = "")]
+    profile: Option<String>,
     /// Only notes in this deck or its subdecks
     #[arg(long)]
     deck_prefix: Option<String>,
@@ -165,8 +169,12 @@ fn run_match_cmd(a: MatchArgs) -> Result<(), Error> {
         return Err(Error::Source("Give exactly one of --pdf, --text, --highlights or --evaluate.".into()));
     }
     let index_dir = a.index_dir.clone().unwrap_or_else(default_index_dir);
+    let deck = match &a.deck {
+        Some(d) => d.clone(),
+        None => ankiplus_match::profiles::collection_for(a.profile.as_deref(), None)?,
+    };
     let req = IndexRequest {
-        deck: &a.deck,
+        deck: &deck,
         deck_prefix: a.deck_prefix.as_deref(),
         index_dir: &index_dir,
         embeddings: match a.embeddings {

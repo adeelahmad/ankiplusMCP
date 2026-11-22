@@ -14,8 +14,11 @@
 
   <section>
     <h2>1. Deck</h2>
-    <label>Deck export (.apkg, .colpkg, .anki2 or .json)
+    <label>Deck export (.apkg, .colpkg, .anki2 or .json); leave empty to read your Anki profile
       <input id="deck" placeholder="AnKing Step 1.apkg (full path)">
+    </label>
+    <label>Anki profile (when no export is given)
+      <select id="profile"><option value="">default</option></select>
     </label>
     <div class="row">
       <label>Deck prefix <input id="prefix" placeholder="AnKing"></label>

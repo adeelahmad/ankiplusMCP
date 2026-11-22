@@ -41,6 +41,19 @@ pub struct Hit {
     pub rrf: f64,
 }
 
+/// How many vectors `embed_all` computed, and how many it took from the previous index.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize)]
+pub struct EmbedCounts {
+    pub embedded: usize,
+    pub reused: usize,
+}
+
+/// sha1 hex of a note's text, the reuse key (with the note id) in `embed_all`.
+pub fn digest(text: &str) -> String {
+    use sha1::{Digest, Sha1};
+    Sha1::digest(text.as_bytes()).iter().map(|b| format!("{b:02x}")).collect()
+}
+
 pub struct DeckIndex {
     pub notes: Vec<Note>,
     pub meta: Map<String, Value>,
@@ -145,21 +158,67 @@ impl DeckIndex {
     }
 
     /// Embed every note with the index's embedder (no-op without one).
-    pub fn embed_all(&mut self, batch: usize, mut progress: impl FnMut(usize, usize)) -> Result<(), crate::Error> {
-        let Some(embedder) = &self.embedder else { return Ok(()) };
-        let mut out = Vec::with_capacity(self.notes.len());
-        let total = self.notes.len();
-        for start in (0..total).step_by(batch.max(1)) {
-            let texts: Vec<String> = self.notes[start..(start + batch).min(total)].iter().map(|n| n.text.clone()).collect();
-            for mut v in embedder.embed_documents(&texts)? {
-                normalise(&mut v);
-                out.push(v);
+    ///
+    /// With `previous` (an older index of the same deck, embedded with the same model),
+    /// notes whose `(note_id, sha1(text))` is unchanged keep their old vector, so an
+    /// AnkiHub update re-embeds only new and edited notes.
+    pub fn embed_all(
+        &mut self,
+        batch: usize,
+        mut progress: impl FnMut(usize, usize),
+        previous: Option<&DeckIndex>,
+    ) -> Result<EmbedCounts, crate::Error> {
+        let Some(embedder) = &self.embedder else { return Ok(EmbedCounts::default()) };
+        let name = embedder.name();
+        let mut old: HashMap<(i64, String), &Vec<f32>> = HashMap::new();
+        if let Some(prev) = previous {
+            if let Some(vectors) = &prev.vectors {
+                if prev.meta.get("embedding_model").and_then(Value::as_str) == Some(name.as_str()) {
+                    for (n, v) in prev.notes.iter().zip(vectors) {
+                        old.insert((n.note_id, digest(&n.text)), v);
+                    }
+                }
             }
-            progress((start + batch).min(total), total);
         }
-        self.meta.insert("embedding_model".into(), Value::String(embedder.name()));
+        let keys: Vec<(i64, String)> = self.notes.iter().map(|n| (n.note_id, digest(&n.text))).collect();
+        let todo: Vec<usize> = (0..keys.len()).filter(|&i| !old.contains_key(&keys[i])).collect();
+        let mut fresh: HashMap<usize, Vec<f32>> = HashMap::new();
+        let batch = batch.max(1);
+        for start in (0..todo.len()).step_by(batch) {
+            let part = &todo[start..(start + batch).min(todo.len())];
+            let texts: Vec<String> = part.iter().map(|&i| self.notes[i].text.clone()).collect();
+            for (&i, mut v) in part.iter().zip(embedder.embed_documents(&texts)?) {
+                normalise(&mut v);
+                fresh.insert(i, v);
+            }
+            progress((start + batch).min(todo.len()), todo.len());
+        }
+        let out: Vec<Vec<f32>> = keys
+            .iter()
+            .enumerate()
+            .map(|(i, key)| fresh.remove(&i).unwrap_or_else(|| {
+                let mut v = old[key].clone();
+                normalise(&mut v);
+                v
+            }))
+            .collect();
+        self.meta.insert("embedding_model".into(), Value::String(name));
         self.vectors = Some(out);
-        Ok(())
+        Ok(EmbedCounts { embedded: todo.len(), reused: keys.len() - todo.len() })
+    }
+
+    /// A new index with `added` notes in place of any notes with the same note id
+    /// (cards just written to Anki), embedding only those and reusing every other vector.
+    pub fn with_notes(&self, added: Vec<Note>, embedder: Option<Box<dyn Embedder + Send + Sync>>) -> Result<(DeckIndex, EmbedCounts), crate::Error> {
+        let ids: HashSet<i64> = added.iter().map(|n| n.note_id).collect();
+        let notes: Vec<Note> = self.notes.iter().filter(|n| !ids.contains(&n.note_id)).cloned().chain(added).collect();
+        let mut fresh = DeckIndex::new(notes, embedder, self.meta.clone());
+        let counts = if fresh.embedder.is_some() && self.vectors.is_some() {
+            fresh.embed_all(256, |_, _| {}, Some(self))?
+        } else {
+            EmbedCounts::default()
+        };
+        Ok((fresh, counts))
     }
 
     pub fn search(&self, text: &str, k: usize, pool: usize) -> Result<Vec<Hit>, crate::Error> {

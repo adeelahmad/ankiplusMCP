@@ -16,7 +16,8 @@ $('index').addEventListener('click', () => busy($('index'), async () => {
   status('index-status', 'Indexing… a large deck with embeddings takes a few minutes the first time.');
   try {
     const info = await invoke('index_deck', { args: {
-      deckPath: $('deck').value.trim(),
+      deckPath: $('deck').value.trim() || null,
+      profile: $('deck').value.trim() ? null : ($('profile').value || null),
       deckPrefix: $('prefix').value.trim() || null,
       embeddings: $('embeddings').value,
       postgres: $('postgres').checked,
@@ -25,6 +26,14 @@ $('index').addEventListener('click', () => busy($('index'), async () => {
     status('index-status', `${info.source}: ${info.notes} notes, ${info.suspendedCards} suspended cards, embeddings ${info.embeddings ? 'on' : 'off'}.`);
   } catch (e) { status('index-status', String(e), true); }
 }));
+
+invoke('list_anki_profiles').then(({ profiles }) => {
+  for (const p of profiles) {
+    const o = document.createElement('option');
+    o.value = o.textContent = p.profile;
+    $('profile').appendChild(o);
+  }
+}).catch(() => {});
 
 let lastCards = [];
 
