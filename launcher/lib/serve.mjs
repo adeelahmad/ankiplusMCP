@@ -2,8 +2,12 @@
 import { spawn } from 'node:child_process';
 import { constants } from 'node:os';
 
+// Pinned: uv otherwise takes the newest CPython, and onnxruntime (embeddings) has
+// no wheels for a brand-new Python yet. uv downloads 3.13 when it is missing.
+export const PYTHON = '3.13';
+
 export function uvArgs(spec, args) {
-  return ['tool', 'run', '--from', spec, 'ankiplusmcp', ...args];
+  return ['tool', 'run', '--python', PYTHON, '--from', spec, 'ankiplusmcp', ...args];
 }
 
 /**
