@@ -20,6 +20,7 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror = "2"
 regex = "1"
+fancy-regex = "0.14"
 indexmap = { version = "2", features = ["serde"] }
 htmlize = { version = "1", features = ["unescape"] }
 rusqlite = { version = "0.37", features = ["bundled"] }

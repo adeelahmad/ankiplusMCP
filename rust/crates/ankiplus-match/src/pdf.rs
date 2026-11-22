@@ -1,9 +1,12 @@
 //! PDF text extraction through docling.rs (text layer only: no layout or OCR models).
 //!
 //! Text items are grouped by their provenance page, so page numbers stay true to the
-//! PDF even when a slide has no text (an image-only slide is just an empty page).
+//! PDF even when a slide has no text. Pages whose text layer is empty or garbled
+//! (a broken font encoding turns 'The' into '7KH') are OCR'd with the system
+//! `tesseract`, rendered by poppler's `pdftoppm` at the same 216 dpi the Python side
+//! uses. Without those programs such a page stays empty.
 
-use crate::chunks::{chunks_from_pages, Chunk};
+use crate::chunks::{chunks_from_pages, looks_garbled, Chunk};
 use crate::Error;
 use docling::{DocumentConverter, SourceDocument};
 use serde_json::Value;
@@ -41,11 +44,41 @@ pub fn pdf_pages(path: &Path) -> Result<Vec<(i64, String)>, Error> {
     Ok(pages.into_iter().map(|(n, lines)| (n, lines.join("\n"))).collect())
 }
 
-/// Chunks from a PDF, optionally limited to some pages.
-pub fn chunks_from_pdf(path: &Path, only: Option<&[i64]>) -> Result<Vec<Chunk>, Error> {
-    let pages: Vec<(i64, String)> = pdf_pages(path)?
+/// OCR one page (1-based); empty when poppler or tesseract is missing or fails.
+pub fn ocr_page(path: &Path, page: i64) -> String {
+    use std::process::Command;
+    let Ok(tmp) = tempfile::tempdir() else { return String::new() };
+    let prefix = tmp.path().join("page");
+    let rendered = Command::new("pdftoppm")
+        .args(["-r", "216", "-png", "-singlefile", "-f", &page.to_string(), "-l", &page.to_string()])
+        .arg(path)
+        .arg(&prefix)
+        .output();
+    if !rendered.is_ok_and(|o| o.status.success()) {
+        return String::new();
+    }
+    match Command::new("tesseract").arg(prefix.with_extension("png")).args(["stdout", "--psm", "3", "-l", "eng"]).output() {
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).into_owned(),
+        _ => String::new(),
+    }
+}
+
+/// Pages with a usable text layer, OCR-ing those whose text is garbled or empty.
+pub fn pdf_pages_ocr(path: &Path, only: Option<&[i64]>, ocr: bool) -> Result<Vec<(i64, String)>, Error> {
+    Ok(pdf_pages(path)?
         .into_iter()
         .filter(|(n, _)| only.is_none_or(|o| o.contains(n)))
-        .collect();
-    Ok(chunks_from_pages(&pages))
+        .map(|(n, text)| {
+            if ocr && looks_garbled(&text) {
+                (n, ocr_page(path, n))
+            } else {
+                (n, text)
+            }
+        })
+        .collect())
+}
+
+/// Chunks from a PDF, optionally limited to some pages.
+pub fn chunks_from_pdf(path: &Path, only: Option<&[i64]>) -> Result<Vec<Chunk>, Error> {
+    Ok(chunks_from_pages(&pdf_pages_ocr(path, only, true)?))
 }

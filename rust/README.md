@@ -19,7 +19,8 @@ rust/
 | Deck loading (.apkg incl. zstd `anki21b`, .colpkg, .anki2, JSON/JSONL) | `deck.py` | `deck.rs` |
 | HTML/cloze cleaning, tokenizer, stopwords, stemming | `deck.py`, `index.py` | `text.rs` |
 | BM25 + embeddings, reciprocal rank fusion (k = 60) | `index.py` | `index.rs` |
-| Chunking (slides, text/Markdown, highlights, PDF) | `chunks.py` | `chunks.rs`, `pdf.rs` |
+| Chunking (line re-joining, inline/OCR bullets, captions, repeated headers dropped) | `chunks.py` | `chunks.rs` |
+| PDF text, garbled-layer detection, tesseract OCR fallback | `chunks.py` (PyMuPDF) | `pdf.rs` (docling.rs + `pdftoppm`) |
 | covered / related / gap, unsuspend list, concept mapping via AnKing tags | `matcher.py` | `matcher.rs` |
 | Gaps-only drafting prompt | `prompt.py` | `prompt.rs` |
 | Quote check (`check_source_support`, difflib ratio ported exactly) | `quotes.py` | `quotes.rs` |
@@ -50,7 +51,8 @@ Features: `embed` downloads ONNX Runtime at build time and the Nomic model (~0.5
 on first use from Hugging Face. `postgres` downloads PostgreSQL and the pgvector
 package on first use into the index folder (`ANKIPLUS_PG_URL` uses an existing
 server with pgvector instead). Models are cached in `~/.cache/ankiplusmcp/models`
-(`ANKIPLUS_MODEL_DIR` to change). `pdf` needs no models.
+(`ANKIPLUS_MODEL_DIR` to change). `pdf` needs no models; OCR of broken or image-only pages uses the system
+`tesseract` and `pdftoppm` (`brew install tesseract poppler`), and is skipped without them.
 
 On Linux the desktop app needs WebKitGTK (`libwebkit2gtk-4.1-dev`). On macOS nothing extra.
 To make an installer: `cargo install tauri-cli` then `cargo tauri build` in `app/src-tauri`.

@@ -84,12 +84,25 @@ def lectures(rng):
         parts = []
         for page in range(1, 6):
             parts.append(f'# Slide {page} {sentence(rng, 2)}')
+            parts.append('BMC Medical College')          # boilerplate on every page
+            if rng.random() < .5:
+                parts.append(f'Figure {page}: Netter atlas')
             for _ in range(rng.randint(2, 6)):
                 bullet = rng.choice(['- ', '* ', '1. ', '• ', ''])
                 line = sentence(rng, rng.randint(1, 14))
                 if rng.random() < .35:  # facts the deck does not know -> related or gap
                     line = ' '.join(rng.choice(UNSEEN) for _ in range(rng.randint(3, 9))) + ' ' + sentence(rng, rng.randint(0, 2))
-                parts.append(bullet + line)
+                roll = rng.random()
+                if roll < .15:   # wrapped sentence: continuation starts lower case or follows 'and'
+                    line = line + ' and\n' + sentence(rng, 4)
+                elif roll < .25:
+                    line = line + ' (' + sentence(rng, 2) + '\n' + sentence(rng, 2) + ')'
+                elif roll < .35:
+                    line = line + ' \u2022 ' + sentence(rng, 5)   # inline bullet
+                elif roll < .4:
+                    line = '\u00a2 ' + line + ' 3'               # OCR bullet glyph + list number
+                parts.append(bullet + line[:1].upper() + line[1:])
+            parts.append(str(page))
         out[f'L{n:03d}.md'] = '\n'.join(parts) + '\n'
     return out
 
