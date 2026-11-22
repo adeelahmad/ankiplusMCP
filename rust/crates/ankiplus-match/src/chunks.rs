@@ -10,6 +10,8 @@ use std::sync::LazyLock;
 
 pub const MIN_TOKENS: usize = 4;
 pub const MAX_CHARS: usize = 400;
+/// A heading and its short bullets, not a whole column of them.
+pub const MAX_LINES: usize = 3;
 // '¢', '©', 'e' and '«' are how OCR commonly reads bullet glyphs. The lookarounds
 // need fancy-regex; everything else uses the regex crate.
 static BULLET: LazyLock<fancy_regex::Regex> = LazyLock::new(|| {
@@ -61,8 +63,13 @@ pub struct Highlight {
 /// Logical lines: bullets stripped, wrapped sentences re-joined, trailing list numbers,
 /// page numbers and figure credits dropped (Python `_lines`).
 pub(crate) fn lines(text: &str) -> Vec<String> {
+    marked(text).into_iter().map(|(line, _)| line).collect()
+}
+
+/// `lines` with, for each line, whether it was a bullet.
+fn marked(text: &str) -> Vec<(String, bool)> {
     let mut out = Vec::new();
-    let mut current: Option<String> = None;
+    let mut current: Option<(String, bool)> = None;
     for raw in splitlines(text) {
         for part in INLINE_BULLET.split(raw) {
             let bulleted = BULLET.is_match(part).unwrap_or(false);
@@ -71,7 +78,7 @@ pub(crate) fn lines(text: &str) -> Vec<String> {
             if !TWO_LETTERS.is_match(&line) || CAPTION.is_match(&line) || CITATION.is_match(&line) {
                 continue;
             }
-            if let Some(cur) = current.as_mut() {
+            if let Some((cur, _)) = current.as_mut() {
                 let first = line.chars().next().unwrap();
                 if !bulleted
                     && (CONTINUES.is_match(cur)
@@ -88,7 +95,7 @@ pub(crate) fn lines(text: &str) -> Vec<String> {
             if let Some(cur) = current.take() {
                 out.push(cur);
             }
-            current = Some(line);
+            current = Some((line, bulleted));
         }
     }
     out.extend(current);
@@ -118,16 +125,24 @@ fn len_chars(s: &str) -> usize {
     s.chars().count()
 }
 
-fn split(page: i64, title: &str, text: &str) -> Vec<Chunk> {
+fn split(page: i64, title: &str, text: &str, skip: &std::collections::HashSet<String>) -> Vec<Chunk> {
     let mut pieces: Vec<String> = Vec::new();
-    for line in lines(text) {
-        if !title.is_empty() && line.trim() == title.trim() {
+    let mut joined: Vec<usize> = Vec::new();
+    let mut after_bullet = false;
+    for (line, bulleted) in marked(text) {
+        if skip.contains(&line) || (!title.is_empty() && line.trim() == title.trim()) {
             continue;
         }
+        let short = tokenize(&line).len() < MIN_TOKENS;
+        // A plain line after a bullet, or one ending in ':', starts the next group.
+        let heading = !bulleted && (after_bullet || line.ends_with(':'));
+        after_bullet = bulleted;
         let merge = match pieces.last() {
             Some(last) => {
-                (tokenize(last).len() < MIN_TOKENS || tokenize(&line).len() < MIN_TOKENS)
+                !heading
+                    && (tokenize(last).len() < MIN_TOKENS || short)
                     && len_chars(last) + len_chars(&line) < MAX_CHARS
+                    && *joined.last().unwrap() < MAX_LINES
             }
             None => false,
         };
@@ -135,8 +150,10 @@ fn split(page: i64, title: &str, text: &str) -> Vec<Chunk> {
             let last = pieces.last_mut().unwrap();
             last.push(' ');
             last.push_str(&line);
+            *joined.last_mut().unwrap() += 1;
         } else {
             pieces.push(line);
+            joined.push(1);
         }
     }
     let mut out: Vec<Chunk> = Vec::new();
@@ -165,10 +182,11 @@ pub fn chunks_from_slides(slides: &[Slide]) -> Vec<Chunk> {
         }
     }
     let limit = (slides.len() as f64 * 0.3).max(3.0);
+    let boiler: std::collections::HashSet<String> =
+        seen.iter().filter(|(_, &n)| n as f64 >= limit).map(|(l, _)| l.to_string()).collect();
     let mut out = Vec::new();
-    for (slide, ls) in slides.iter().zip(&per_slide) {
-        let text = ls.iter().filter(|l| (seen[l.as_str()] as f64) < limit).cloned().collect::<Vec<_>>().join("\n");
-        out.extend(split(slide.n, &slide.title, &text));
+    for slide in slides {
+        out.extend(split(slide.n, &slide.title, &slide.text, &boiler));
     }
     out
 }
@@ -225,6 +243,120 @@ pub fn chunks_from_highlights(highlights: &[Highlight]) -> Vec<Chunk> {
         });
     }
     out
+}
+
+// ---- OCR reading order ---------------------------------------------------------------
+
+#[derive(Debug, Clone)]
+struct Segment {
+    left: i64,
+    right: i64,
+    top: i64,
+    text: String,
+}
+
+type Word = (i64, i64, i64, i64, String);
+
+/// Words of one tesseract line, split where the gap is wider than 2.5 line heights.
+fn segments(mut words: Vec<Word>) -> Vec<Segment> {
+    words.sort();
+    let mut heights: Vec<i64> = words.iter().map(|w| w.3).collect();
+    heights.sort();
+    let h = heights[words.len() / 2].max(1) as f64;
+    let mut segs: Vec<Vec<Word>> = vec![];
+    let mut seg: Vec<Word> = vec![words[0].clone()];
+    for w in words.into_iter().skip(1) {
+        let last = seg.last().unwrap();
+        if (w.0 - (last.0 + last.2)) as f64 > 2.5 * h {
+            segs.push(std::mem::take(&mut seg));
+        }
+        seg.push(w);
+    }
+    segs.push(seg);
+    segs.into_iter()
+        .map(|s| Segment {
+            left: s[0].0,
+            right: s.last().unwrap().0 + s.last().unwrap().2,
+            top: s.iter().map(|w| w.1).min().unwrap(),
+            text: s.iter().map(|w| w.4.as_str()).collect::<Vec<_>>().join(" "),
+        })
+        .collect()
+}
+
+/// x positions in the middle of a block that no narrow segment crosses.
+fn gutters(segs: &[Segment]) -> Vec<f64> {
+    let lo = segs.iter().map(|s| s.left).min().unwrap();
+    let hi = segs.iter().map(|s| s.right).max().unwrap();
+    let span = hi - lo;
+    let narrow: Vec<&Segment> = segs.iter().filter(|s| (s.right - s.left) as f64 <= span as f64 * 0.5).collect();
+    if span <= 0 || narrow.len() < 4 {
+        return vec![];
+    }
+    let mut cover = vec![false; span as usize + 1];
+    for s in narrow {
+        for x in (s.left - lo).max(0)..=(s.right - lo).min(span) {
+            cover[x as usize] = true;
+        }
+    }
+    let (mut found, mut start) = (vec![], None::<i64>);
+    for x in ((span as f64 * 0.2) as i64)..=((span as f64 * 0.8) as i64) {
+        let covered = cover[x as usize];
+        match start {
+            None if !covered => start = Some(x),
+            Some(st) if covered => {
+                if (x - st) as f64 >= span as f64 * 0.03 {
+                    found.push(lo as f64 + (st + x) as f64 / 2.0);
+                }
+                start = None;
+            }
+            _ => {}
+        }
+    }
+    found
+}
+
+/// Column by column. A line that starts in the first column and crosses a gutter
+/// (a heading across the page) closes the band of columns above it.
+fn order(mut segs: Vec<Segment>) -> Vec<Segment> {
+    let cuts = gutters(&segs);
+    let column = |s: &Segment| cuts.iter().filter(|&&c| s.left as f64 > c).count();
+    let mut out: Vec<Segment> = vec![];
+    let mut band: Vec<Segment> = vec![];
+    let flush = |band: &mut Vec<Segment>, out: &mut Vec<Segment>| {
+        band.sort_by_key(|s| (column(s), s.top, s.left));
+        out.append(band);
+    };
+    segs.sort_by_key(|s| (s.top, s.left));
+    for s in segs {
+        if cuts.first().is_some_and(|&c| (s.left as f64) < c && c < s.right as f64) {
+            flush(&mut band, &mut out);
+            out.push(s);
+        } else {
+            band.push(s);
+        }
+    }
+    flush(&mut band, &mut out);
+    out
+}
+
+/// Reading order for tesseract TSV output. Tesseract sometimes reads side-by-side
+/// columns straight across; lines are split at wide gaps and read column by column.
+pub fn ocr_layout(tsv: &str) -> String {
+    let mut lines: indexmap::IndexMap<Vec<String>, Vec<Word>> = indexmap::IndexMap::new();
+    for row in splitlines(tsv).into_iter().skip(1) {
+        let f: Vec<&str> = row.split('\t').collect();
+        if f.len() < 12 || f[0] != "5" || f[11].trim().is_empty() {
+            continue;
+        }
+        let nums: Option<Vec<i64>> = f[6..10].iter().map(|v| v.trim().parse().ok()).collect();
+        let Some(n) = nums else { continue };
+        lines.entry(f[1..5].iter().map(|s| s.to_string()).collect()).or_default().push((n[0], n[1], n[2], n[3], f[11].to_string()));
+    }
+    let segs: Vec<Segment> = lines.into_values().flat_map(segments).collect();
+    if segs.is_empty() {
+        return String::new();
+    }
+    order(segs).into_iter().map(|s| s.text).collect::<Vec<_>>().join("\n")
 }
 
 #[cfg(test)]

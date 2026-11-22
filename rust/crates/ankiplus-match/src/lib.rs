@@ -30,7 +30,7 @@ pub mod pdf;
 #[cfg(feature = "postgres")]
 pub mod pgstore;
 
-pub use chunks::{chunks_from_highlights, chunks_from_pages, chunks_from_slides, chunks_from_text, Chunk, Highlight, Slide};
+pub use chunks::{ocr_layout, chunks_from_highlights, chunks_from_pages, chunks_from_slides, chunks_from_text, Chunk, Highlight, Slide};
 pub use deck::{list_decks, load_deck, DeckSummary, LoadOptions, Note};
 pub use evaluate::{evaluate, Evaluation, Label};
 pub use index::{DeckIndex, EmbedCounts, Embedder, Hit};

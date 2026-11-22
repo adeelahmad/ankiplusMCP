@@ -45,20 +45,23 @@ pub fn pdf_pages(path: &Path) -> Result<Vec<(i64, String)>, Error> {
 }
 
 /// OCR one page (1-based); empty when poppler or tesseract is missing or fails.
+///
+/// The page is rendered in grey (tesseract drops coloured headings such as red or
+/// purple slide titles from a colour image) and read column by column (`ocr_layout`).
 pub fn ocr_page(path: &Path, page: i64) -> String {
     use std::process::Command;
     let Ok(tmp) = tempfile::tempdir() else { return String::new() };
     let prefix = tmp.path().join("page");
     let rendered = Command::new("pdftoppm")
-        .args(["-r", "216", "-png", "-singlefile", "-f", &page.to_string(), "-l", &page.to_string()])
+        .args(["-r", "216", "-png", "-gray", "-singlefile", "-f", &page.to_string(), "-l", &page.to_string()])
         .arg(path)
         .arg(&prefix)
         .output();
     if !rendered.is_ok_and(|o| o.status.success()) {
         return String::new();
     }
-    match Command::new("tesseract").arg(prefix.with_extension("png")).args(["stdout", "--psm", "3", "-l", "eng"]).output() {
-        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).into_owned(),
+    match Command::new("tesseract").arg(prefix.with_extension("png")).args(["stdout", "--psm", "3", "-l", "eng", "tsv"]).output() {
+        Ok(o) if o.status.success() => crate::chunks::ocr_layout(&String::from_utf8_lossy(&o.stdout)),
         _ => String::new(),
     }
 }

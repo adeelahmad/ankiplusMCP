@@ -422,3 +422,53 @@ fn wizard_builds_the_servers_named_index() {
         setup::build_named_index(&req, &mut |_, _, _| {}).unwrap();
     }
 }
+
+fn tsv(lines: &[(i64, Vec<(i64, &str)>)]) -> String {
+    let mut rows = vec!["level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext".to_string()];
+    for (n, (top, words)) in lines.iter().enumerate() {
+        for (w, (left, text)) in words.iter().enumerate() {
+            rows.push(format!("5\t1\t1\t1\t{}\t{}\t{left}\t{top}\t{}\t30\t90\t{text}", n + 1, w + 1, text.len() * 20));
+        }
+    }
+    rows.join("\n")
+}
+
+#[test]
+fn ocr_layout_reads_columns_separately() {
+    let t = tsv(&[
+        (10, vec![(10, "Title"), (130, "across"), (280, "the"), (360, "whole"), (480, "slide"), (620, "width"), (760, "here")]),
+        (100, vec![(10, "Predisposing"), (1000, "Candidiasis")]),
+        (150, vec![(10, "Poor"), (110, "hygiene"), (1000, "White"), (1120, "patches")]),
+        (200, vec![(10, "Immunocompromised"), (1000, "Dysphagia")]),
+    ]);
+    let got = ocr_layout(&t);
+    assert_eq!(
+        got.lines().collect::<Vec<_>>(),
+        vec!["Title across the whole slide width here", "Predisposing", "Poor hygiene", "Immunocompromised", "Candidiasis", "White patches", "Dysphagia"]
+    );
+}
+
+#[test]
+fn headings_start_a_new_chunk() {
+    let text = "Predisposing Factors:\n• Poor oral hygiene\n• Immunocompromised conditions\nTypes of Stomatitis\n• Ulcerative stomatitis";
+    let chunks: Vec<String> = chunks_from_slides(&[Slide { n: 1, title: String::new(), text: text.into() }]).into_iter().map(|c| c.text).collect();
+    assert_eq!(chunks, vec!["Predisposing Factors: Poor oral hygiene Immunocompromised conditions", "Types of Stomatitis Ulcerative stomatitis"]);
+}
+
+/// Python-vs-Rust check on generated inputs: ANKIPLUS_PARITY_CASES is a JSON list of
+/// {"tsv": .., "layout": ..} and {"slides": [..], "chunks": [..]} written by the Python side.
+#[test]
+fn parity_cases_from_python() {
+    let Ok(path) = std::env::var("ANKIPLUS_PARITY_CASES") else { return };
+    let cases: Vec<serde_json::Value> = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    for (i, case) in cases.iter().enumerate() {
+        if let Some(t) = case.get("tsv") {
+            assert_eq!(ocr_layout(t.as_str().unwrap()), case["layout"].as_str().unwrap(), "layout case {i}");
+        } else {
+            let slides: Vec<Slide> = serde_json::from_value(case["slides"].clone()).unwrap();
+            let got: Vec<String> = chunks_from_slides(&slides).into_iter().map(|c| c.text).collect();
+            let want: Vec<String> = serde_json::from_value(case["chunks"].clone()).unwrap();
+            assert_eq!(got, want, "chunk case {i}");
+        }
+    }
+}
