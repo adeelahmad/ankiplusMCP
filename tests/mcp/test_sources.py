@@ -45,6 +45,8 @@ def test_pdf_and_occlusion(tmp_path):
     result = s.build_occlusion(w,artifact,[{'text':'Sodium','left':.1,'top':.1,'width':.2,'height':.1}])
     assert 'image-occlusion' in result['fields']['Occlusion']
     assert s.image_bytes(w,result['preview']).startswith(b'\x89PNG')
+    edge = s.build_occlusion(w,artifact,[{'text':'Edge','left':.9,'top':.95,'width':.3,'height':.2}])
+    assert edge['regions'][0]['width'] <= .1 + 1e-9 and edge['regions'][0]['height'] <= .05 + 1e-9
     assert pdf.read_bytes().startswith(b'%PDF')
     s.close()
 

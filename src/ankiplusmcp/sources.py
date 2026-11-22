@@ -174,6 +174,9 @@ class Sources:
         from cards.figures import parse_regions, occlusion_markup, write_images
         if mode not in ('one','all'): raise DomainError('MODE','Use one or all.')
         self.image_bytes(workspace,artifact)
+        # OCR label boxes from list_figures can overhang the crop edge by a few pixels;
+        # trim them to the figure instead of rejecting the whole occlusion.
+        regions = [dict(r, width=min(r['width'], 1-r['left']), height=min(r['height'], 1-r['top'])) for r in regions]
         parsed = parse_regions(regions,','.join(map(str,keep)) if keep is not None else None)
         if not parsed: raise DomainError('REGIONS','Supply at least one region.')
         with self.store.edit(workspace):
