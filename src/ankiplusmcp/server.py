@@ -12,7 +12,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import CallToolResult, TextContent, ImageContent, ToolAnnotations
 from pydantic import Field, ValidationError
 from cards.common.errors import CardsError
-from .models import Card, Region, Finding, ExternalResult, Highlight
+from .models import Card, Region, Finding, ExternalResult, Highlight, WrittenCard
 from .store import DomainError
 from .service import Service
 from . import settings, doctor
@@ -197,6 +197,12 @@ class API:
                    backend: Literal['auto','postgres','file']='auto', profile: str | None=None) -> dict:
         """Index an existing deck (e.g. AnKing) for matching without AI. With no deck_path (or with profile), reads the student's Anki collection straight from the Anki profile folder: no export needed, Anki can stay open. Otherwise reads an .apkg/.colpkg/.anki2 file or JSON note list under a source root. Re-running it updates the index and re-embeds only new or changed notes (e.g. after an AnkiHub sync). BM25 plus optional local ONNX embeddings; embedded Postgres when installed. Reads a copy; never changes the collection. Returns a job hosted by workspace."""
         return self.s.index_deck(workspace,deck_path,name,deck_prefix,fields,embeddings,model,backend,profile)
+
+    def index_written_cards(self, workspace: Workspace,
+                            written: Annotated[list[WrittenCard],Field(min_length=1,max_length=1000)],
+                            index: IndexName='anking') -> dict:
+        """After the host creates cards with the official Anki MCP, add them to the deck index straight away (draft id -> Anki note id), so later lectures match them and never draft duplicates. Embeds only these notes. Performs zero Anki operations."""
+        return self.s.index_written_cards(workspace,[w.model_dump() for w in written],index)
 
     def list_anki_profiles(self) -> dict:
         """List the Anki profiles on this computer (folder, collection size, last change) that index_deck can read without an export."""

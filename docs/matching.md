@@ -19,9 +19,16 @@ It reads a private copy, so Anki can stay open, and nothing in the collection ch
 `list_anki_profiles` shows the profiles; pass `profile` when there is more than one.
 Because it reads the live collection, cards the student has already unsuspended are known.
 
+**The whole collection.** Leave out `deck_prefix` to index every deck, including the
+student's own cards, so a lecture is never re-carded from an older lecture's cards.
+
+**Cards you write join at once.** After the host creates cards through the Anki MCP, call
+`index_written_cards` with the draft ids and the new note ids. They are embedded and
+added to the index immediately.
+
 **Updates cost seconds.** Run `index_deck` again after an AnkiHub sync: notes whose text
-is unchanged keep their embeddings, and only new or edited notes are embedded again (the
-result reports `embedded` and `reused`). A full first index of the 33,000-note AnKing deck
+is unchanged keep their embeddings, and only new or edited notes are embedded again, and deleted notes drop
+out (the result reports `embedded` and `reused`). A full first index of the 33,000-note AnKing deck
 takes about 50 minutes on 4 CPU cores; a typical sync re-embeds a few hundred notes.
 
 ### Or export the deck

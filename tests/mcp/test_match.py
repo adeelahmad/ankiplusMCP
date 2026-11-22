@@ -421,3 +421,24 @@ def test_cli_reads_a_profile(tmp_path, monkeypatch, capsys):
     code = main(['match', '--profile', '--deck-prefix', 'AnKing', '--text', str(lecture), '--out', str(tmp_path / 'out'),
                  '--index-dir', str(tmp_path / 'idx'), '--embeddings', 'off'])
     assert code == 0 and '1 covered' in capsys.readouterr().out
+
+
+def test_written_cards_join_the_index_at_once(tmp_path, deck, monkeypatch):
+    from ankiplusmcp.match import index as index_mod
+    monkeypatch.setattr(index_mod, 'get_embedder', lambda mode='auto', model=None: FakeEmbedder())
+    s = Service(tmp_path / 'work', [tmp_path])
+    try:
+        w = s.store.create('lecture', text='# Tongue\n- The ulnar nerve supplies the hypothenar muscles of the hand\n')['id']
+        wait(s, w, s.index_deck(w, str(deck), deck_prefix='AnKing', backend='file'))
+        assert s.match_source(w, 'anking')['summary']['gap'] == 1
+        s.save_cards(w, [{'id': 'c1', 'fields': {'Text': 'The {{c1::ulnar}} nerve supplies the hypothenar muscles of the hand', 'Extra': ''},
+                          'source_ref': [1]}], 0)
+        out = s.index_written_cards(w, [{'draft_id': 'c1', 'note_id': 900, 'card_ids': [9000]}])
+        assert out['added'] == 1 and out['notes'] == 6 and out['embedded'] == 1 and out['reused'] == 5
+        result = s.match_source(w, 'anking')
+        report = s.store.read_json(w, result['artifacts']['report'])
+        assert result['summary']['covered'] == 1 and report['chunks'][0]['matches'][0]['note_id'] == 900
+        with pytest.raises(Exception):
+            s.index_written_cards(w, [{'draft_id': 'nope', 'note_id': 901}])
+    finally:
+        s.close()
