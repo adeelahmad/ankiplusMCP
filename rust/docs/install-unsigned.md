@@ -4,6 +4,7 @@ These test builds are not signed yet, so macOS and Windows ask once before they 
 
 ## Before you start
 
+- macOS 13.4 (Ventura) or later, or Windows 10/11.
 - Anki is installed and you have opened it at least once.
 - Claude Desktop is installed and you are signed in (https://claude.ai/download).
 - Card writing goes through the AnkiMCP add-on in Anki, which needs to be installed in Anki as before.

@@ -5,7 +5,7 @@
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.icns", "icons/icon.ico"],
     "category": "Education",
     "shortDescription": "Make Anki cards from lectures with Claude, without repeating your deck",
-    "macOS": { "minimumSystemVersion": "11.0" },
+    "macOS": { "minimumSystemVersion": "13.4" },
     "windows": { "nsis": { "installMode": "currentUser" } }
   }
 }
