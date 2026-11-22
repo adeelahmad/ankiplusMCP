@@ -10,7 +10,7 @@
 set -eu
 HOST="${1:-claude-desktop}"
 LECTURES="${2:-$HOME/Documents/Lectures}"
-REF="${ANKIPLUS_REF:-github:adeelahmad/ankiplusMCP#release-v0.5.1}"
+REF="${ANKIPLUS_REF:-github:adeelahmad/ankiplusMCP#release-v0.5.2}"
 say() { printf '\n==> %s\n' "$1"; }
 have() { command -v "$1" >/dev/null 2>&1; }
 sudo_() { if [ "$(id -u)" = 0 ]; then "$@"; else sudo "$@"; fi; }

@@ -43,6 +43,20 @@ def clean_text(value):
     return '\n'.join(line for line in lines if line)
 
 
+_CLOZE_NUM = re.compile(r'\{\{c(\d+)::(.*?)(?:::[^}]*)?\}\}', re.S)
+
+
+def card_answers(first_field, ords):
+    """For a cloze note: ``{card_id: the text that card hides}`` (card ord n tests cloze c{n+1}).
+    Empty for other note types, or when card ords are unknown (a JSON note list)."""
+    hidden = {}
+    for number, answer in _CLOZE_NUM.findall(first_field or ''):
+        text = clean_text(answer)
+        if text:
+            hidden.setdefault(int(number), []).append(text)
+    return {int(cid): ' … '.join(hidden[o + 1]) for cid, o in ords.items() if o + 1 in hidden}
+
+
 def load_deck(path, deck_prefix=None, fields=None, suspended_only=False):
     """Load notes. ``deck_prefix`` keeps notes with a card in a deck at or under it.
 
@@ -70,6 +84,7 @@ def load_deck(path, deck_prefix=None, fields=None, suspended_only=False):
         chosen = _choose_fields(note['fields'], fields)
         note['text'] = '\n'.join(t for t in (clean_text(v) for v in chosen) if t)
         note['front'] = clean_text(chosen[0]) if chosen else ''
+        note['card_answers'] = card_answers(chosen[0] if chosen else '', note.pop('card_ords', None) or {})
         if note['text']:
             out.append(note)
     return out
@@ -167,18 +182,21 @@ def _from_sqlite(path):
             raise DeckError('Not an Anki collection (no notes/cards tables).')
         decks, models, field_names = _names(db, tables)
         cards = {}
-        for cid, nid, did, queue in db.execute('select id, nid, did, queue from cards'):
-            entry = cards.setdefault(nid, {'card_ids': [], 'suspended': [], 'deck': decks.get(did, '')})
+        has_ord = any(r[1] == 'ord' for r in db.execute('pragma table_info(cards)'))
+        for cid, nid, did, queue, ord_ in db.execute(f"select id, nid, did, queue, {'ord' if has_ord else 'null'} from cards"):
+            entry = cards.setdefault(nid, {'card_ids': [], 'suspended': [], 'ords': {}, 'deck': decks.get(did, '')})
             entry['card_ids'].append(cid)
+            if ord_ is not None:
+                entry['ords'][cid] = ord_
             if queue == SUSPENDED:
                 entry['suspended'].append(cid)
         notes = []
         for nid, mid, tags, flds in db.execute('select id, mid, tags, flds from notes'):
-            info = cards.get(nid, {'card_ids': [], 'suspended': [], 'deck': ''})
+            info = cards.get(nid, {'card_ids': [], 'suspended': [], 'ords': {}, 'deck': ''})
             values = flds.split('\x1f')
             names = field_names.get(mid) or [f'Field{i + 1}' for i in range(len(values))]
             notes.append({'note_id': nid, 'card_ids': info['card_ids'], 'suspended_card_ids': info['suspended'],
-                          'deck': info['deck'], 'notetype': models.get(mid, ''),
+                          'card_ords': info['ords'], 'deck': info['deck'], 'notetype': models.get(mid, ''),
                           'tags': tags.split(), 'fields': dict(zip(names, values))})
         return notes
 

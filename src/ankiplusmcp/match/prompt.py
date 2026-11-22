@@ -10,7 +10,10 @@ already covered by existing cards ({cards} suspended cards proposed for unsuspen
 - Draft cards only for the facts under "Gaps" and the missing parts of "Partly covered".
 - Do not duplicate the existing cards quoted below; they will be unsuspended instead.
 - Group closely related facts into one cloze note (AnKing Step deck style); do not make
-  one card per sentence.
+  one card per sentence. In a list, give each item its own cloze number (c1, c2, c3...);
+  never hide a whole list under one number.
+- A conflict means the deck states a different value: card the lecture's value and name the
+  difference in Extra.
 - Cite the page in `source_ref` for every card. Use the AnkiPlus tools for figures and
   image occlusion where a page needs an image.
 """
@@ -23,6 +26,16 @@ def build_prompt(report, source='lecture', max_chars=24000):
     gaps = [r for r in report['chunks'] if r['status'] == 'gap']
     related = [r for r in report['chunks'] if r['status'] == 'related']
     covered = [r for r in report['chunks'] if r['status'] == 'covered']
+    clashing = [r for r in report['chunks'] if r['status'] == 'conflict']
+    if clashing:
+        lines = []
+        for r in clashing:
+            lines.append(f'- p{r["page"]}: {r["text"]}')
+            for c in r.get('conflicts', [])[:2]:
+                said = '; '.join(f'lecture {q["lecture"]} vs card {q["card"]} {q["unit"]}' for q in c['quantities'])
+                lines.append(f'  - existing {c["note_id"]} says otherwise ({said}): {c["preview"]}')
+        parts.append('## Conflicts (the deck states a different value)\nDraft a card with the lecture\'s value, and name the '
+                     'difference in Extra. Do not unsuspend the conflicting card.\n' + '\n'.join(lines))
     if gaps:
         parts.append('## Gaps (no existing card)\n' + '\n'.join(f'- p{r["page"]}: {r["text"]}' for r in gaps))
     if related:

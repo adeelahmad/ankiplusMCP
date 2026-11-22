@@ -484,3 +484,43 @@ def test_postgres_needs_avx512_on_x86():
     assert not pgstore.cpu_supported('x86_64', dict(full, AVX512VPOPCNTDQ=False))   # e.g. AMD Zen 3
     assert not pgstore.cpu_supported('AMD64', {})
     assert pgstore.cpu_supported('arm64', {})
+
+
+def test_card_answers_map_cards_to_their_cloze():
+    from ankiplusmcp.match.deck import card_answers
+    front = 'CN {{c1::XII}} moves the tongue; a lesion deviates it {{c2::toward}} the lesion'
+    assert card_answers(front, {11: 0, 12: 1, 13: 5}) == {11: 'XII', 12: 'toward'}
+    assert card_answers('Plain basic note', {11: 0}) == {}
+
+
+def _note(nid, front, cards, answers, extra=''):
+    return {'note_id': nid, 'card_ids': cards, 'suspended_card_ids': cards, 'deck': 'AnKing', 'tags': [],
+            'front': front, 'text': front + ('\n' + extra if extra else ''), 'card_answers': answers}
+
+
+def test_only_the_sibling_that_tests_the_fact_and_number_conflicts():
+    notes = [_note(1, 'CN XII lesion: the tongue deviates toward the side of the lesion', [11, 12],
+                   {11: 'XII', 12: 'toward'}),
+             _note(2, 'Jaundice is clinically visible when serum bilirubin exceeds 2.5 mg/dL', [21], {21: '2.5 mg/dL'}),
+             _note(3, 'Thoracic duct drains into the left subclavian vein', [31], {31: 'left subclavian'})]
+    index = match.DeckIndex(notes)
+    chunks = [{'id': 'p1-1', 'page': 1, 'title': '', 'text': 'Tongue deviates toward the side of the lesion'},
+              {'id': 'p2-1', 'page': 2, 'title': '', 'text': 'Jaundice is clinically visible when serum bilirubin exceeds 3 mg/dL'}]
+    report = match.match_chunks(index, chunks, match.Thresholds(covered=.4, related=.3))
+    plan = {e['note_id']: e for e in report['unsuspend']['notes']}
+    assert plan[1]['card_ids'] == [12] and plan[1]['answer_in_lecture']          # not the CN XII sibling
+    assert plan[1]['cards'][0]['question'].startswith('CN XII lesion: the tongue deviates [...]')
+    assert 2 not in plan and 21 not in report['unsuspend']['card_ids']             # 2.5 vs 3 mg/dL
+    jaundice = report['chunks'][1]
+    assert jaundice['status'] == 'conflict' and jaundice['conflicts'][0]['quantities'][0]['unit'] == 'mg/dl'
+    assert report['summary']['conflict'] == 1
+    prompt = match.build_prompt(report)
+    assert '## Conflicts' in prompt and 'lecture [3.0] vs card [2.5] mg/dl' in prompt
+    assert 'judge every note' in report['unsuspend']['instructions']
+
+
+def test_form_problems_list_clozes_and_cut_sentences():
+    from ankiplusmcp.match.quotes import form_problems
+    assert form_problems('Causes: {{c1::dehydration}}, {{c1::Sjogren}}, {{c1::radiotherapy}}')[0].startswith('c1 hides 3')
+    assert form_problems('Causes: {{c1::dehydration}}, {{c2::Sjogren}}, {{c3::radiotherapy}}') == []
+    assert 'unpaired' in form_problems('two or more of: {{c2::25%}} of defecations)')[0]

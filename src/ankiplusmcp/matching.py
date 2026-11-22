@@ -263,15 +263,20 @@ class Matching:
             cards = [c for c in entry['card_ids'] if c not in done]
             if cards:
                 notes.append({'note_id': entry['note_id'], 'card_ids': cards, 'reason': entry['reason'],
-                              'card': entry['preview'], 'lecture': [texts[c] for c in entry['chunks'] if c in texts][:3]})
+                              'card': entry['preview'], 'lecture': [texts[c] for c in entry['chunks'] if c in texts][:3],
+                              'cards': [c for c in entry.get('cards', []) if c['card_id'] in cards],
+                              'answer_in_lecture': entry.get('answer_in_lecture')})
         card_ids = sorted({c for n in notes for c in n['card_ids']})
         artifact = f'match/{match_id}/unsuspend-approved.json'
         self.store.write_json(workspace, artifact, {'match_id': match_id, 'card_ids': card_ids, 'note_ids': [n['note_id'] for n in notes],
                                                     'excluded_note_ids': sorted(excluded), 'performed_anki_operations': 0})
         return {'match_id': match_id, 'cards': len(card_ids), 'notes': notes[offset:offset + limit], 'total_notes': len(notes),
                 'card_ids': card_ids, 'artifact': artifact,
-                'instructions': 'Show these notes to the user. Re-run with exclude_note_ids for any they reject. '
-                                'After approval, unsuspend card_ids with the Anki MCP, then call record_unsuspend.'}
+                'instructions': 'First judge each note yourself: keep it only if a card\'s question and answer (in cards; not '
+                                'the Extra) test one of its lecture lines. answer_in_lecture=false means no hidden answer '
+                                'appears in the lecture, so look hard. Re-run with exclude_note_ids for the ones you drop, '
+                                'show the rest to the user, re-run for any they reject. After approval, unsuspend card_ids '
+                                'with the Anki MCP, then call record_unsuspend.'}
 
     def record_unsuspend(self, workspace, card_ids, status, match_id=None, detail=''):
         """Log what the host reports it unsuspended, so later lectures never propose those cards again."""
