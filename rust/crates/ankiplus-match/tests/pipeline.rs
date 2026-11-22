@@ -389,3 +389,36 @@ fn changed_deck_updates_the_same_cache_folder() {
     assert_eq!(msgs.iter().filter(|m| m.starts_with("indexing")).count(), 2);
     assert_eq!(std::fs::read_dir(&index_dir).unwrap().count(), 1);
 }
+
+#[test]
+fn wizard_builds_the_servers_named_index() {
+    let tmp = tempfile::tempdir().unwrap();
+    let deck = make_collection(&tmp.path().join("collection.anki2"));
+    let decks = list_decks(&deck).unwrap();
+    assert!(!decks.is_empty() && decks.iter().all(|d| d.notes > 0));
+    let root = tmp.path().join("workspaces");
+    let req = setup::NamedIndex {
+        collection: &deck,
+        root: &root,
+        name: "anking",
+        deck_prefix: None,
+        embeddings: pipeline::EmbeddingMode::Off,
+        profile: true,
+    };
+    let mut stages = vec![];
+    let built = setup::build_named_index(&req, &mut |s, _, _| stages.push(s.to_string())).unwrap();
+    assert!(built.notes > 0 && !built.embeddings);
+    assert_eq!(stages.first().map(String::as_str), Some("reading deck"));
+    let meta = setup::index_info(&root, "anking").unwrap();
+    for key in ["name", "backend", "source_path", "profile", "deck_stamp", "embeddings_mode", "requested_backend", "format", "notes"] {
+        assert!(meta.contains_key(key), "{key}");
+    }
+    assert_eq!(meta["profile"], true);
+    if let Ok(dir) = std::env::var("ANKIPLUS_KEEP_WIZARD_INDEX") {
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::copy(&deck, Path::new(&dir).join("collection.anki2")).unwrap();
+        let req = setup::NamedIndex { collection: &Path::new(&dir).join("collection.anki2"), root: Path::new(&dir), ..req };
+        setup::build_named_index(&req, &mut |_, _, _| {}).unwrap();
+    }
+}

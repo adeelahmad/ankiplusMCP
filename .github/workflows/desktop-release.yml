@@ -1,0 +1,70 @@
+name: Desktop installers
+
+# Unsigned AnkiPlus installers (.dmg for macOS, .exe for Windows) as workflow artifacts.
+# The app bundles uv, which fetches Python and the MCP server on first use, and the ONNX
+# runtime; the search model downloads on first run. Signing and notarization need the
+# owner's Apple and Windows certificates, so these builds are unsigned (see
+# rust/docs/install-unsigned.md for the one-time right-click > Open step).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["**"]
+    paths: ["rust/**", "package.json", ".github/workflows/desktop-release.yml"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.11.32"
+
+jobs:
+  installer:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, target: aarch64-apple-darwin, bundle: dmg, uv: uv-aarch64-apple-darwin.tar.gz, name: AnkiPlus-macOS-AppleSilicon }
+          - { os: macos-latest, target: x86_64-apple-darwin, bundle: dmg, uv: uv-x86_64-apple-darwin.tar.gz, name: AnkiPlus-macOS-Intel }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, bundle: nsis, uv: uv-x86_64-pc-windows-msvc.zip, name: AnkiPlus-Windows }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: rust/app/src-tauri
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: installer-${{ matrix.target }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Bundle uv as the app's sidecar
+        run: |
+          mkdir -p binaries dl
+          curl -fsSL -o "dl/${{ matrix.uv }}" "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/${{ matrix.uv }}"
+          case "${{ matrix.uv }}" in
+            *.zip) unzip -q -o "dl/${{ matrix.uv }}" -d dl/x && cp dl/x/uv.exe "binaries/uv-${{ matrix.target }}.exe" ;;
+            *) tar -xzf "dl/${{ matrix.uv }}" -C dl && cp dl/*/uv "binaries/uv-${{ matrix.target }}" && chmod +x "binaries/uv-${{ matrix.target }}" ;;
+          esac
+          ls -l binaries
+      - name: Build the installer
+        run: npx --yes @tauri-apps/cli@2 build --target ${{ matrix.target }} --bundles ${{ matrix.bundle }} --config tauri.release.conf.json --features embed,pdf
+      - name: Collect
+        run: |
+          mkdir -p ../../../dist-installer
+          find ../../target/${{ matrix.target }}/release/bundle \( -name '*.dmg' -o -name '*-setup.exe' \) -exec cp {} ../../../dist-installer/ \;
+          cp ../../docs/install-unsigned.md ../../../dist-installer/README-install.md
+          ls -l ../../../dist-installer
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: dist-installer/
+          if-no-files-found: error
+          retention-days: 30

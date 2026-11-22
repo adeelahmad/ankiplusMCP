@@ -1,3 +1,4 @@
 target/
 app/src-tauri/gen/
 .fastembed_cache/
+app/src-tauri/binaries/

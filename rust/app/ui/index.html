@@ -9,9 +9,49 @@
 <body>
   <header>
     <h1>AnkiPlus</h1>
-    <p class="sub">Find what your deck already covers. No AI calls; nothing changes in Anki.</p>
+    <p class="sub">Set up once, then make cards from Claude chat. Nothing changes in Anki from here.</p>
   </header>
 
+  <section id="wizard">
+    <h2>Setup</h2>
+    <ol class="steps">
+      <li id="step-anki">
+        <h3>1. Your Anki</h3>
+        <p id="anki-status" class="status">Looking for Anki…</p>
+        <div class="row">
+          <label>Profile <select id="w-profile"></select></label>
+          <label>Deck to compare against
+            <select id="w-deck"><option value="">All decks</option></select>
+          </label>
+        </div>
+      </li>
+      <li id="step-index">
+        <h3>2. Index my cards</h3>
+        <p class="hint">Reads a private copy of your collection (Anki can stay open). The first run downloads the
+          search model (about 0.5 GB) and takes a few minutes on a large deck.</p>
+        <button id="w-index">Index my cards</button>
+        <progress id="w-progress" max="1" value="0" hidden></progress>
+        <p id="index-wizard-status" class="status"></p>
+      </li>
+      <li id="step-claude">
+        <h3>3. Connect Claude Desktop</h3>
+        <p class="hint">Adds AnkiPlus to Claude Desktop (your current settings are backed up first). Claude may read
+          lecture files from these folders:</p>
+        <textarea id="w-roots" rows="3"></textarea>
+        <button id="w-claude">Connect Claude Desktop</button>
+        <p id="claude-status" class="status"></p>
+        <pre id="warmup" class="log" hidden></pre>
+      </li>
+      <li id="step-done" hidden>
+        <h3>Done</h3>
+        <p>Quit Claude Desktop completely (Claude menu, Quit) and open it again. Then ask Claude, for example:
+          <em>"Make cards from MyLecture.pdf in Downloads; skip what my deck already has."</em></p>
+      </li>
+    </ol>
+  </section>
+
+  <details id="advanced">
+    <summary>Advanced: match a lecture in this app</summary>
   <section>
     <h2>1. Deck</h2>
     <label>Deck export (.apkg, .colpkg, .anki2 or .json); leave empty to read your Anki profile
@@ -64,6 +104,8 @@
     <h3>Prompt (gaps only)</h3>
     <textarea id="prompt" rows="14" readonly></textarea>
   </section>
+
+  </details>
 
   <script src="app.js"></script>
 </body>
