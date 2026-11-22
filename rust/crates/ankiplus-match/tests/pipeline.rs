@@ -471,9 +471,14 @@ fn parity_cases_from_python() {
             assert_eq!(ocr_layout(t.as_str().unwrap()), case["layout"].as_str().unwrap(), "layout case {i}");
         } else {
             let slides: Vec<Slide> = serde_json::from_value(case["slides"].clone()).unwrap();
-            let got: Vec<String> = chunks_from_slides(&slides).into_iter().map(|c| c.text).collect();
+            let chunks = chunks_from_slides(&slides);
+            let got: Vec<String> = chunks.iter().map(|c| c.text.clone()).collect();
             let want: Vec<String> = serde_json::from_value(case["chunks"].clone()).unwrap();
             assert_eq!(got, want, "chunk case {i}");
+            if let Some(want) = case.get("contexts") {
+                let got: Vec<&str> = chunks.iter().map(|c| c.context.as_str()).collect();
+                assert_eq!(serde_json::json!(got), *want, "context case {i}");
+            }
         }
     }
 }
@@ -510,7 +515,7 @@ fn only_the_sibling_that_tests_the_fact_and_number_conflicts() {
     ];
     let mut index = DeckIndex::new(notes, None, Default::default());
     index.embed_all(64, |_, _| {}, None).unwrap();
-    let chunk = |id: &str, page, text: &str| Chunk { id: id.into(), page, title: String::new(), text: text.into() };
+    let chunk = |id: &str, page, text: &str| Chunk { id: id.into(), page, title: String::new(), text: text.into(), context: String::new() };
     let chunks = vec![
         chunk("p1-1", 1, "Tongue deviates toward the side of the lesion"),
         chunk("p2-1", 2, "Jaundice is clinically visible when serum bilirubin exceeds 3 mg/dL"),
@@ -538,4 +543,34 @@ fn list_clozes_and_cut_sentences_are_flagged() {
     assert!(p[0].starts_with("c1 hides 3 items"));
     assert!(p[1].starts_with("unpaired ()"));
     assert!(quotes::form_problems("{{c1::a}} and {{c2::b}}").is_empty());
+}
+
+#[test]
+fn named_answer_reaches_candidates() {
+    let notes = vec![
+        cloze_note(1, "Bloody diarrhoea due to infection is known as dysentery", &[(11, "dysentery")]),
+        cloze_note(2, "Hematochezia is bright red blood in the stool", &[(21, "bright red blood")]),
+    ];
+    // A 2-note deck has no rare terms.
+    let index = DeckIndex::new(notes, None, Default::default()).with_answer_min_weight(0.5);
+    let line = "Dysentery: frequent watery stools with blood and mucus";
+    assert_eq!(index.answered(line), [0].into_iter().collect());
+    let hit = &index.search(line, 2, 50).unwrap()[0];
+    assert!(hit.doc == 0 && hit.answer_named);
+    let chunks = vec![Chunk { id: "p1-1".into(), page: 1, title: String::new(), text: line.into(), context: String::new() }];
+    let t = Thresholds { covered: Some(0.95), related: Some(0.3), ..Default::default() };
+    let report = match_chunks(&index, &chunks, &t, &MatchOptions::default()).unwrap();
+    assert!(report.unsuspend.card_ids.is_empty());
+    assert_eq!(report.unsuspend.candidates[0].note_id, 1);
+    assert!(report.summary.candidates_to_judge >= 1 && report.unsuspend.instructions.contains("include_note_ids"));
+}
+
+#[test]
+fn chunks_keep_their_heading_as_context() {
+    let text = "Sialadenitis\n\u{2022} Acute inflammation of salivary glands\n\u{2022} Commonly due to mumps or bacterial infection";
+    let slides: Vec<Slide> = serde_json::from_value(serde_json::json!([{"n": 1, "title": "", "text": text}])).unwrap();
+    let chunks = chunks_from_slides(&slides);
+    let last = chunks.last().unwrap();
+    assert!(last.text.starts_with("Commonly due to mumps"));
+    assert_eq!(last.context, "Sialadenitis");
 }

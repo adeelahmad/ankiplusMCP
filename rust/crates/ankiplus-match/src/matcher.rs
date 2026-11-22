@@ -103,6 +103,9 @@ pub struct Thresholds {
     pub related: Option<f64>,
     /// Existing notes accepted per covered chunk.
     pub per_chunk: usize,
+    /// Below 'covered': notes per chunk offered for the host to judge.
+    #[serde(default = "three")]
+    pub candidates: usize,
     /// Concept neighbours listed per covered chunk.
     pub concepts: usize,
     /// Topic tags larger than this are too broad to expand.
@@ -111,8 +114,12 @@ pub struct Thresholds {
 
 impl Default for Thresholds {
     fn default() -> Self {
-        Self { covered: None, related: None, per_chunk: 3, concepts: 5, max_group: 150 }
+        Self { covered: None, related: None, per_chunk: 3, candidates: 3, concepts: 5, max_group: 150 }
     }
+}
+
+fn three() -> usize {
+    3
 }
 
 impl Thresholds {
@@ -147,6 +154,8 @@ pub struct NoteSummary {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub cosine: Option<Option<f64>>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub answer_named: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub tag: Option<String>,
 }
 
@@ -156,6 +165,18 @@ pub struct CardQuestion {
     pub card_id: i64,
     pub question: String,
     pub answer: String,
+}
+
+/// A suspended match that was not accepted, for the host to judge (`include_note_ids`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Candidate {
+    pub note_id: i64,
+    pub score: f64,
+    pub chunks: Vec<String>,
+    pub preview: String,
+    pub cards: Vec<CardQuestion>,
+    pub suspended_card_ids: Vec<i64>,
+    pub answer_named: bool,
 }
 
 /// An accepted match that states a different number with the same unit.
@@ -190,6 +211,9 @@ pub struct Summary {
     pub chunks: usize,
     pub notes_to_unsuspend: usize,
     pub cards_to_unsuspend: usize,
+    /// Suspended matches below 'covered' offered for the host to judge.
+    #[serde(default)]
+    pub candidates_to_judge: usize,
     /// Distinct suspended CARD ids skipped because a previous lecture already unsuspended them.
     pub already_unsuspended: usize,
 }
@@ -212,6 +236,8 @@ pub struct Unsuspend {
     pub card_ids: Vec<i64>,
     pub notes: Vec<UnsuspendNote>,
     pub performed_anki_operations: usize,
+    #[serde(default)]
+    pub candidates: Vec<Candidate>,
     pub instructions: String,
 }
 
@@ -262,6 +288,7 @@ fn summary(index: &DeckIndex, doc: usize, hit: Option<&Hit>) -> NoteSummary {
         score: hit.map(|h| h.score),
         overlap: hit.map(|h| h.overlap),
         cosine: hit.map(|h| h.cosine),
+        answer_named: hit.map(|h| h.answer_named),
         tag: None,
     }
 }
@@ -279,6 +306,7 @@ pub fn match_chunks(
     let mut unsuspend: IndexMap<i64, UnsuspendNote> = IndexMap::new();
     let already = &opts.already_unsuspended;
     let mut skipped: HashSet<i64> = HashSet::new();
+    let mut candidates: IndexMap<i64, Candidate> = IndexMap::new();
     let mut claim = |s: &NoteSummary, chunk: &Chunk, reason: &str| {
         let chunk_id = chunk.id.as_str();
         let mut pending: Vec<i64> = s.suspended_card_ids.iter().copied().filter(|c| !already.contains(c)).collect();
@@ -288,7 +316,7 @@ pub fn match_chunks(
         }
         // A cloze note: propose only the siblings whose hidden answer is in the lecture line.
         let cards: Vec<&CardQuestion> = s.cards.iter().filter(|c| pending.contains(&c.card_id)).collect();
-        let terms: HashSet<String> = tokenize(&chunk.text).into_iter().collect();
+        let terms: HashSet<String> = tokenize(&format!("{} {}", chunk.text, chunk.context)).into_iter().collect();
         let testing: Vec<i64> = cards
             .iter()
             .filter(|c| tokenize(&c.answer).iter().any(|t| terms.contains(t)))
@@ -324,7 +352,9 @@ pub fn match_chunks(
     };
 
     for chunk in chunks {
-        let hits = index.search(&chunk.text, opts.k, 50)?;
+        let query =
+            if chunk.context.is_empty() { chunk.text.clone() } else { format!("{}: {}", chunk.context, chunk.text) };
+        let hits = index.search(&query, opts.k, 50)?;
         let best = hits.first().map_or(0.0, |h| h.score);
         let mut status = if best >= covered {
             "covered"
@@ -387,6 +417,20 @@ pub fn match_chunks(
         for m in &accepted {
             claim(m, chunk, "match");
         }
+        let taken: HashSet<i64> =
+            accepted.iter().map(|m| m.note_id).chain(clashes.iter().map(|c| c.note_id)).collect();
+        for m in matches.iter().filter(|m| !taken.contains(&m.note_id) && !m.suspended_card_ids.is_empty()).take(t.candidates) {
+            let entry = candidates.entry(m.note_id).or_insert_with(|| Candidate {
+                note_id: m.note_id,
+                score: m.score.unwrap_or(0.0),
+                chunks: vec![],
+                preview: m.preview.clone(),
+                cards: m.cards.clone(),
+                suspended_card_ids: m.suspended_card_ids.iter().copied().filter(|c| !already.contains(c)).collect(),
+                answer_named: m.answer_named.unwrap_or(false),
+            });
+            entry.chunks.push(chunk.id.clone());
+        }
         if opts.unsuspend_concepts && status == "covered" {
             for c in &concepts {
                 claim(c, chunk, "concept");
@@ -404,6 +448,8 @@ pub fn match_chunks(
             conflicts: clashes,
         });
     }
+    let mut judge: Vec<Candidate> = candidates.into_values().filter(|c| !unsuspend.contains_key(&c.note_id)).collect();
+    judge.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal)); // stable, like Python
     let mut plan: Vec<UnsuspendNote> = unsuspend.into_values().collect();
     plan.sort_by_key(|e| e.note_id);
     let mut card_ids: Vec<i64> = plan.iter().flat_map(|e| e.card_ids.iter().copied()).collect();
@@ -418,6 +464,7 @@ pub fn match_chunks(
         chunks: rows.len(),
         notes_to_unsuspend: plan.len(),
         cards_to_unsuspend: card_ids.len(),
+        candidates_to_judge: judge.len(),
         already_unsuspended: skipped.len(),
     };
     Ok(Report {
@@ -429,6 +476,7 @@ pub fn match_chunks(
             card_ids,
             notes: plan,
             performed_anki_operations: 0,
+            candidates: judge,
             instructions: JUDGE.into(),
         },
     })
@@ -436,5 +484,6 @@ pub fn match_chunks(
 
 pub const JUDGE: &str = "Before showing this list, judge every note: read each card's question and answer (not the Extra) and keep it \
 only if that card tests the lecture line it matched. Drop cards that are merely on the same topic, and pass the \
-dropped notes as exclude_note_ids to prepare_unsuspend. Then show the user the list; after approval, unsuspend \
-these CARD ids with the official Anki MCP.";
+dropped notes as exclude_note_ids to prepare_unsuspend. Also judge the candidates (scored below covered; \
+answer_named means the card hides a term the line names): add the ones that do test a lecture line with \
+include_note_ids. Then show the user the list; after approval, unsuspend these CARD ids with the official Anki MCP.";
