@@ -211,7 +211,7 @@ class IndexStore:
 
 class FileIndexStore(IndexStore):
     """Default: a folder with notes.jsonl.gz, meta.json and optional embeddings.npy (float16)."""
-    KEYS = ('note_id', 'card_ids', 'suspended_card_ids', 'deck', 'tags', 'text', 'front')
+    KEYS = ('note_id', 'card_ids', 'suspended_card_ids', 'deck', 'tags', 'text', 'front', 'card_answers')
 
     def __init__(self, folder):
         self.folder = Path(folder)

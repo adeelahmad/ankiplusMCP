@@ -100,7 +100,7 @@ def main(argv=None):
         (out / 'unsuspend.json').write_text(json.dumps(report['unsuspend'], indent=2) + '\n')
         (out / 'prompt.md').write_text(build_prompt(report, name))
         s = report['summary']
-        print(f"{s['chunks']} chunks: {s['covered']} covered, {s['related']} related, {s['gap']} gaps; "
+        print(f"{s['chunks']} chunks: {s['covered']} covered, {s['related']} related, {s['gap']} gaps, {s.get('conflict', 0)} conflicts; "
               f"{s['cards_to_unsuspend']} suspended cards to unsuspend -> {out}")
         return 0
     except (ValueError, OSError) as exc:  # FileNotFoundError (no Anki profile) is an OSError
