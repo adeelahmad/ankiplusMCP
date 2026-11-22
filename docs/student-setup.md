@@ -31,14 +31,15 @@ On Windows set `$env:ANKIPLUS_HOST` / `$env:ANKIPLUS_LECTURES` before running it
 Already have an older AnkiPlus (for example from Hamza-Xoho/ankiplusMCP) in your AI app? The
 command replaces that entry and keeps a backup of the app's config next to it.
 
-## 2. Export your AnKing deck once
+## 2. Nothing to export
 
-In Anki: **File → Export**, format **Anki Deck Package (.apkg)**, choose the AnKing deck, untick
-**Include media**, and save it into your `Lectures` folder.
+AnkiPlus reads your Anki collection directly (a private copy, so Anki can stay open). The
+first index of AnKing takes a while (about an hour on a laptop, once). After an AnkiHub
+sync, ask it to update the index: only new or changed cards are processed.
 
 ## 3. Restart your AI app and ask
 
-> Index my AnKing deck from Lectures/AnKing.apkg.
+> Index my AnKing deck.
 
 Then, for each lecture:
 

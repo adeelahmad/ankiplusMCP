@@ -191,12 +191,16 @@ class API:
         data=self.s.image_bytes(workspace,artifact)
         return CallToolResult(content=[ImageContent(type='image',mimeType='image/png',data=base64.b64encode(data).decode())])
 
-    def index_deck(self, workspace: Workspace, deck_path: str, name: IndexName='anking', deck_prefix: str | None=None,
+    def index_deck(self, workspace: Workspace, deck_path: str | None=None, name: IndexName='anking', deck_prefix: str | None=None,
                    fields: list[Annotated[str,Field(min_length=1,max_length=100)]] | None=None,
                    embeddings: Literal['auto','off','required']='auto', model: str | None=None,
-                   backend: Literal['auto','postgres','file']='auto') -> dict:
-        """Index an existing deck (e.g. AnKing) from an .apkg/.colpkg/.anki2 file or a JSON note list under a source root, for matching without AI. BM25 plus optional local ONNX embeddings; embedded Postgres when installed. Reads a copy; never changes the collection. Returns a job hosted by workspace."""
-        return self.s.index_deck(workspace,deck_path,name,deck_prefix,fields,embeddings,model,backend)
+                   backend: Literal['auto','postgres','file']='auto', profile: str | None=None) -> dict:
+        """Index an existing deck (e.g. AnKing) for matching without AI. With no deck_path (or with profile), reads the student's Anki collection straight from the Anki profile folder: no export needed, Anki can stay open. Otherwise reads an .apkg/.colpkg/.anki2 file or JSON note list under a source root. Re-running it updates the index and re-embeds only new or changed notes (e.g. after an AnkiHub sync). BM25 plus optional local ONNX embeddings; embedded Postgres when installed. Reads a copy; never changes the collection. Returns a job hosted by workspace."""
+        return self.s.index_deck(workspace,deck_path,name,deck_prefix,fields,embeddings,model,backend,profile)
+
+    def list_anki_profiles(self) -> dict:
+        """List the Anki profiles on this computer (folder, collection size, last change) that index_deck can read without an export."""
+        return self.s.list_anki_profiles()
 
     def list_indexes(self) -> dict:
         """List deck indexes built by index_deck, with note and suspended-card counts."""
@@ -259,7 +263,7 @@ async def resolve_roots(server, store):
 def create_server(service):
     server=FastMCP('ankiplusmcp', instructions='Mechanical helper toolkit. Choose tools according to the user request. The official Anki MCP is a separate host dependency for all collection reads/writes. Optional get_guidance explains examples; no mandatory pipeline.')
     server._mcp_server.version=importlib.metadata.version('ankiplusmcp')
-    read_only={'capabilities','get_guidance','list_workspaces','get_workspace','read_source','search_source','list_figures','get_figure','resolve_target','get_cards','check_cards','prepare_review','get_report','list_artifacts','read_artifact','get_image','get_job','list_indexes','check_source_support','read_highlights'}
+    read_only={'capabilities','get_guidance','list_workspaces','get_workspace','read_source','search_source','list_figures','get_figure','resolve_target','get_cards','check_cards','prepare_review','get_report','list_artifacts','read_artifact','get_image','get_job','list_indexes','check_source_support','read_highlights','list_anki_profiles'}
     for name,method in inspect.getmembers(API(service),predicate=inspect.ismethod):
         if name.startswith('_'): continue
         def wrap(method):

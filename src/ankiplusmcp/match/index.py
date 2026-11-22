@@ -107,16 +107,28 @@ class DeckIndex:
             for tag in concept_tags(note.get('tags', [])):
                 self.by_tag.setdefault(tag, []).append(i)
 
-    def embed_all(self, batch=256, progress=None):
+    def embed_all(self, batch=256, progress=None, previous=None):
+        """Embed every note. With ``previous`` (an older index of the same deck, same model),
+        notes whose text is unchanged keep their old vector, so an AnkiHub update re-embeds
+        only new and edited notes. Returns {'embedded': n, 'reused': n}."""
         if self.embedder is None:
-            return
-        parts = []
-        for start in range(0, len(self.notes), batch):
-            parts.append(self.embedder.embed_documents([n['text'] for n in self.notes[start:start + batch]]))
+            return {'embedded': 0, 'reused': 0}
+        old = {}
+        if previous is not None and previous.vectors is not None and previous.meta.get('embedding_model') == self.embedder.name:
+            old = {(n['note_id'], _digest(n['text'])): previous.vectors[i] for i, n in enumerate(previous.notes)}
+        keys = [(n['note_id'], _digest(n['text'])) for n in self.notes]
+        todo = [i for i, key in enumerate(keys) if key not in old]
+        fresh = {}
+        for start in range(0, len(todo), batch):
+            part = todo[start:start + batch]
+            for i, vec in zip(part, self.embedder.embed_documents([self.notes[i]['text'] for i in part])):
+                fresh[i] = vec
             if progress:
-                progress(min(start + batch, len(self.notes)), len(self.notes))
-        self.vectors = _normalise(np.vstack(parts)) if parts else np.zeros((0, 1), dtype=np.float32)
+                progress(min(start + batch, len(todo)), len(todo))
+        rows = [fresh[i] if i in fresh else old[key] for i, key in enumerate(keys)]
+        self.vectors = _normalise(np.vstack(rows)) if rows else np.zeros((0, 1), dtype=np.float32)
         self.meta['embedding_model'] = self.embedder.name
+        return {'embedded': len(todo), 'reused': len(self.notes) - len(todo)}
 
     # -- search -------------------------------------------------------------
     def search(self, text, k=10, pool=50):
@@ -233,6 +245,11 @@ class FileIndexStore(IndexStore):
         if vectors.is_file() and embedder is not None and embedder.name == meta.get('embedding_model'):
             index.vectors = np.load(vectors).astype(np.float32)
         return index
+
+
+def _digest(text):
+    import hashlib
+    return hashlib.sha1(text.encode('utf-8')).hexdigest()
 
 
 def _normalise(matrix):

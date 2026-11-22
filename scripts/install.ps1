@@ -29,4 +29,4 @@ npx -y $Ref init --host $Host_ --source-root $Lectures --yes --force
 Write-Host "`n==> 5/5 Preview browser, matching model and health check"
 npx -y $Ref setup --yes --model
 npx -y $Ref doctor
-Write-Host "`nDone. Restart $Host_. Put lecture PDFs and your AnKing .apkg export in $Lectures."
+Write-Host "`nDone. Restart $Host_. Put lecture PDFs in $Lectures. Your AnKing deck is read straight from Anki (no export needed)."
