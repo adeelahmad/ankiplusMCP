@@ -141,11 +141,26 @@ def match_chunks(index, chunks, thresholds=None, k=5, expand_concepts=True, unsu
         for m in accepted:
             claim(m, chunk, 'match')
         taken = {m['note_id'] for m in accepted} | {c['note_id'] for c in clashes}
+        terms_here = set(tokenize(chunk['text'] + ' ' + chunk.get('context', '')))
         for m in [m for m in matches if m['note_id'] not in taken and m['suspended_card_ids']][:t.candidates]:
+            # Offer only the cards whose hidden answer the line (or its heading) contains: a card that hides
+            # something the lecture never says cannot test it. A named answer keeps its cards as they are.
+            open_cards = [c for c in m['cards'] if c['card_id'] in m['suspended_card_ids'] and c['card_id'] not in already]
+            testing = [c for c in open_cards if set(tokenize(c['answer'])) & terms_here]
+            in_line = bool(testing)
+            if not testing and m.get('answer_named'):
+                testing = open_cards
+            if not testing:
+                continue
             entry = candidates.setdefault(m['note_id'], {'note_id': m['note_id'], 'score': m['score'], 'chunks': [],
-                                                         'preview': m['preview'], 'cards': m['cards'],
-                                                         'suspended_card_ids': [c for c in m['suspended_card_ids'] if c not in already],
-                                                         'answer_named': m.get('answer_named', False)})
+                                                         'preview': m['preview'], 'cards': [],
+                                                         'suspended_card_ids': [],
+                                                         'answer_named': m.get('answer_named', False),
+                                                         'answer_in_lecture': False})
+            entry['answer_in_lecture'] = entry['answer_in_lecture'] or in_line
+            seen_ids = {c['card_id'] for c in entry['cards']}
+            entry['cards'] += [c for c in testing if c['card_id'] not in seen_ids]
+            entry['suspended_card_ids'] = sorted({c['card_id'] for c in entry['cards']})
             entry['chunks'].append(chunk['id'])
         if unsuspend_concepts and status == 'covered':
             for c in concepts:

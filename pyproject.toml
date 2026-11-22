@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ankiplusmcp"
-version = "0.5.3"
+version = "0.5.4"
 requires-python = ">=3.12,<3.15"
 description = "Independent mechanical MCP helpers for Anki cards and lecture sources"
 readme = "README.md"

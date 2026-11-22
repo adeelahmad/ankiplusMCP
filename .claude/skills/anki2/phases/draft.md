@@ -17,7 +17,12 @@ Cover every testable item, with no count cap. Map items to stated objective ids.
 Keep source terms, hedges and units; mechanism essays belong in understanding
 notes, while their examinable facts belong on cards. Do not create vault files.
 For anatomy, order coverage bones/landmarks → joints → movements → muscles →
-nerves/vessels. Enumerate figure candidates by objective coverage and record why
+nerves/vessels.
+Before writing, run a coverage pass over the source: every term the lecture
+defines (a symptom, sign, structure or process) gets its own definition card,
+even when it looks simple, and every named structure gets its nerve supply,
+blood supply and lymph drainage cards wherever the lecture states them.
+Enumerate figure candidates by objective coverage and record why
 any are skipped. `cards check` blocks (C05) any slide whose figure has five or more
 OCR labels unless the slide has an io note or a `skipped.jsonl` record whose item
 starts `Figure:` and gives the reason. Labelled anatomy figures are the default
