@@ -8,7 +8,7 @@
 $ErrorActionPreference = 'Stop'
 $Host_ = if ($env:ANKIPLUS_HOST) { $env:ANKIPLUS_HOST } else { 'claude-desktop' }
 $Lectures = if ($env:ANKIPLUS_LECTURES) { $env:ANKIPLUS_LECTURES } else { Join-Path $HOME 'Documents\Lectures' }
-$Ref = if ($env:ANKIPLUS_REF) { $env:ANKIPLUS_REF } else { 'github:adeelahmad/ankiplusMCP#release-v0.5.3' }
+$Ref = if ($env:ANKIPLUS_REF) { $env:ANKIPLUS_REF } else { 'github:adeelahmad/ankiplusMCP#release-v0.5.4' }
 function Have($name) { [bool](Get-Command $name -ErrorAction SilentlyContinue) }
 function Refresh { $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User') }
 $accept = @('--accept-source-agreements','--accept-package-agreements','-e','--silent')

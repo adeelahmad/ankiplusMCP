@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { repoRoot, runCli, tempDir } from './helpers.mjs';
 import { HOSTS } from '../lib/hosts.mjs';
 
-const REF = 'github:adeelahmad/ankiplusMCP#release-v0.5.3';
+const REF = 'github:adeelahmad/ankiplusMCP#release-v0.5.4';
 const OTHER = { mcpServers: { other: { type: 'http', url: 'https://example.test/mcp' } } };
 const read = (file) => JSON.parse(readFileSync(file, 'utf8'));
 const backups = (dir) => readdirSync(dir).filter((name) => name.includes('.ankiplusmcp-backup-'));
