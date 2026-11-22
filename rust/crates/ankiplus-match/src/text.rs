@@ -174,3 +174,18 @@ mod tests {
         assert_eq!(round_to(0.123456, 4), 0.1235);
     }
 }
+
+/// A float as Python's `repr` prints it (`3.0`, `2.5`, `1e+16`, `1.5e-05`).
+pub fn py_float(v: f64) -> String {
+    let a = v.abs();
+    if !v.is_finite() {
+        return if v.is_nan() { "nan".into() } else if v > 0.0 { "inf".into() } else { "-inf".into() };
+    }
+    if a == 0.0 || (1e-4..1e16).contains(&a) {
+        return format!("{v:?}");
+    }
+    let s = format!("{v:e}");
+    let (mantissa, exp) = s.split_once('e').unwrap_or((&s, "0"));
+    let (sign, digits) = exp.strip_prefix('-').map_or(("+", exp), |d| ("-", d));
+    format!("{mantissa}e{sign}{digits:0>2}")
+}

@@ -34,7 +34,7 @@ pub use chunks::{ocr_layout, chunks_from_highlights, chunks_from_pages, chunks_f
 pub use deck::{list_decks, load_deck, DeckSummary, LoadOptions, Note};
 pub use evaluate::{evaluate, Evaluation, Label};
 pub use index::{DeckIndex, EmbedCounts, Embedder, Hit};
-pub use matcher::{match_chunks, MatchOptions, Report, Thresholds};
+pub use matcher::{match_chunks, CardQuestion, Clash, MatchOptions, Quantity, Report, Thresholds, UnsuspendNote};
 pub use prompt::build_prompt;
 pub use quotes::{check_support, DraftCard, SupportReport};
 pub use store::{FileIndexStore, IndexStore};

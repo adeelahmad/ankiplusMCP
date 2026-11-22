@@ -15,6 +15,8 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::Path;
+use std::sync::LazyLock;
+use regex::Regex;
 
 const SUSPENDED: i64 = -1;
 
@@ -38,6 +40,31 @@ pub struct Note {
     /// The first chosen field, cleaned: the fact itself, without the Extra.
     #[serde(default)]
     pub front: Option<String>,
+    /// For a cloze note: what each card hides (card id -> answer). `None` when unknown
+    /// (cards written by the app), serialised as `null` like the Python store.
+    #[serde(default)]
+    pub card_answers: Option<IndexMap<i64, String>>,
+    /// Card id -> ord, from a collection; consumed by `load_deck`.
+    #[serde(skip)]
+    pub card_ords: IndexMap<i64, i64>,
+}
+
+static CLOZE_NUM: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?s)\{\{c(\d+)::(.*?)(?:::[^}]*)?\}\}").unwrap());
+
+/// For a cloze note: `{card_id: the text that card hides}` (card ord n tests cloze c{n+1}).
+/// Empty for other note types, or when card ords are unknown (a JSON note list).
+pub fn card_answers(first_field: &str, ords: &IndexMap<i64, i64>) -> IndexMap<i64, String> {
+    let mut hidden: HashMap<i64, Vec<String>> = HashMap::new();
+    for c in CLOZE_NUM.captures_iter(first_field) {
+        let text = clean_text(&c[2]);
+        if let (Ok(n), false) = (c[1].parse::<i64>(), text.is_empty()) {
+            hidden.entry(n).or_default().push(text);
+        }
+    }
+    ords.iter()
+        .filter_map(|(cid, o)| hidden.get(&(o + 1)).map(|h| (*cid, h.join(" \u{2026} "))))
+        .collect()
 }
 
 #[derive(Debug, Clone, Default)]
@@ -91,7 +118,9 @@ pub fn load_deck(path: &Path, opts: &LoadOptions) -> Result<Vec<Note>, Error> {
             .filter(|t| !t.is_empty())
             .collect::<Vec<_>>()
             .join("\n");
-        note.front = Some(chosen_first.map(|v| clean_text(&v)).unwrap_or_default());
+        note.front = Some(chosen_first.as_deref().map(clean_text).unwrap_or_default());
+        let ords = std::mem::take(&mut note.card_ords);
+        note.card_answers = Some(card_answers(chosen_first.as_deref().unwrap_or(""), &ords));
         if !note.text.is_empty() {
             out.push(note);
         }
@@ -190,6 +219,8 @@ fn from_json(path: &Path) -> Result<Vec<Note>, Error> {
             fields,
             text: String::new(),
             front: None,
+            card_answers: None,
+            card_ords: IndexMap::new(),
         });
     }
     Ok(notes)
@@ -231,6 +262,7 @@ fn from_sqlite_copy(path: &Path) -> Result<Vec<Note>, Error> {
 struct CardInfo {
     card_ids: Vec<i64>,
     suspended: Vec<i64>,
+    ords: IndexMap<i64, i64>,
     deck: String,
 }
 
@@ -249,16 +281,27 @@ fn from_sqlite(path: &Path) -> Result<Vec<Note>, Error> {
     let (decks, models, field_names) = names(&db, &has)?;
     let mut cards: HashMap<i64, CardInfo> = HashMap::new();
     {
-        let mut stmt = db.prepare("select id, nid, did, queue from cards")?;
+        let has_ord = db
+            .prepare("pragma table_info(cards)")?
+            .query_map([], |r| r.get::<_, String>(1))?
+            .filter_map(Result::ok)
+            .any(|c| c == "ord");
+        let sql = format!("select id, nid, did, queue, {} from cards", if has_ord { "ord" } else { "null" });
+        let mut stmt = db.prepare(&sql)?;
         let mut rows = stmt.query([])?;
         while let Some(r) = rows.next()? {
             let (cid, nid, did, queue): (i64, i64, i64, i64) = (r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?);
+            let ord: Option<i64> = r.get(4)?;
             let entry = cards.entry(nid).or_insert_with(|| CardInfo {
                 card_ids: vec![],
                 suspended: vec![],
+                ords: IndexMap::new(),
                 deck: decks.get(&did).cloned().unwrap_or_default(),
             });
             entry.card_ids.push(cid);
+            if let Some(o) = ord {
+                entry.ords.insert(cid, o);
+            }
             if queue == SUSPENDED {
                 entry.suspended.push(cid);
             }
@@ -281,9 +324,9 @@ fn from_sqlite(path: &Path) -> Result<Vec<Note>, Error> {
         let fields: IndexMap<String, String> =
             names.iter().cloned().zip(values.iter().map(|v| v.to_string())).collect();
         let info = cards.remove(&nid);
-        let (card_ids, suspended, deck) = match info {
-            Some(i) => (i.card_ids, i.suspended, i.deck),
-            None => (vec![], vec![], String::new()),
+        let (card_ids, suspended, ords, deck) = match info {
+            Some(i) => (i.card_ids, i.suspended, i.ords, i.deck),
+            None => (vec![], vec![], IndexMap::new(), String::new()),
         };
         notes.push(Note {
             note_id: nid,
@@ -295,6 +338,8 @@ fn from_sqlite(path: &Path) -> Result<Vec<Note>, Error> {
             fields,
             text: String::new(),
             front: None,
+            card_answers: None,
+            card_ords: ords,
         });
     }
     Ok(notes)

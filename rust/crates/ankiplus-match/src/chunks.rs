@@ -38,6 +38,9 @@ pub struct Chunk {
     #[serde(default)]
     pub title: String,
     pub text: String,
+    /// The heading this piece sits under ("Sialadenitis" for "Commonly due to mumps").
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub context: String,
 }
 
 /// One page or slide of extracted text.
@@ -129,6 +132,7 @@ fn split(page: i64, title: &str, text: &str, skip: &std::collections::HashSet<St
     let mut pieces: Vec<String> = Vec::new();
     let mut joined: Vec<usize> = Vec::new();
     let mut after_bullet = false;
+    let (mut contexts, mut lead): (Vec<String>, String) = (Vec::new(), String::new());
     for (line, bulleted) in marked(text) {
         if skip.contains(&line) || (!title.is_empty() && line.trim() == title.trim()) {
             continue;
@@ -152,18 +156,25 @@ fn split(page: i64, title: &str, text: &str, skip: &std::collections::HashSet<St
             last.push_str(&line);
             *joined.last_mut().unwrap() += 1;
         } else {
+            let stripped = line.trim_end_matches(':');
+            if !bulleted && tokenize(&line).len() <= 6 {
+                lead = stripped.to_string();
+            }
+            contexts.push(if !bulleted && lead == stripped { String::new() } else { lead.clone() });
             pieces.push(line);
             joined.push(1);
         }
     }
     let mut out: Vec<Chunk> = Vec::new();
-    for piece in pieces {
+    for (piece, context) in pieces.into_iter().zip(contexts) {
         if tokenize(&piece).len() >= 2 {
+            let keep = !context.is_empty() && !piece.to_lowercase().contains(&context.to_lowercase());
             out.push(Chunk {
                 id: format!("p{page}-{}", out.len() + 1),
                 page,
                 title: title.to_string(),
                 text: take_chars(&piece, MAX_CHARS * 2),
+                context: if keep { context } else { String::new() },
             });
         }
     }
@@ -240,6 +251,7 @@ pub fn chunks_from_highlights(highlights: &[Highlight]) -> Vec<Chunk> {
             page: item.page.unwrap_or(0),
             title: item.note.clone().unwrap_or_default(),
             text,
+            context: String::new(),
         });
     }
     out

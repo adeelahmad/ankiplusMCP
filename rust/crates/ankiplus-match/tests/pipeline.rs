@@ -462,13 +462,137 @@ fn parity_cases_from_python() {
     let Ok(path) = std::env::var("ANKIPLUS_PARITY_CASES") else { return };
     let cases: Vec<serde_json::Value> = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
     for (i, case) in cases.iter().enumerate() {
-        if let Some(t) = case.get("tsv") {
+        if let Some(t) = case.get("quantities") {
+            let got = serde_json::to_value(matcher::quantities(t.as_str().unwrap())).unwrap();
+            assert_eq!(got, case["want"], "quantities case {i}: {t}");
+        } else if let Some(t) = case.get("form") {
+            assert_eq!(serde_json::to_value(quotes::form_problems(t.as_str().unwrap())).unwrap(), case["want"], "form case {i}");
+        } else if let Some(t) = case.get("tsv") {
             assert_eq!(ocr_layout(t.as_str().unwrap()), case["layout"].as_str().unwrap(), "layout case {i}");
         } else {
             let slides: Vec<Slide> = serde_json::from_value(case["slides"].clone()).unwrap();
-            let got: Vec<String> = chunks_from_slides(&slides).into_iter().map(|c| c.text).collect();
+            let chunks = chunks_from_slides(&slides);
+            let got: Vec<String> = chunks.iter().map(|c| c.text.clone()).collect();
             let want: Vec<String> = serde_json::from_value(case["chunks"].clone()).unwrap();
             assert_eq!(got, want, "chunk case {i}");
+            if let Some(want) = case.get("contexts") {
+                let got: Vec<&str> = chunks.iter().map(|c| c.context.as_str()).collect();
+                assert_eq!(serde_json::json!(got), *want, "context case {i}");
+            }
         }
     }
+}
+
+#[test]
+fn card_answers_map_cards_to_their_cloze() {
+    let front = "CN {{c1::XII}} moves the tongue; a lesion deviates it {{c2::toward}} the lesion";
+    let ords: indexmap::IndexMap<i64, i64> = [(11, 0), (12, 1), (13, 5)].into_iter().collect();
+    let got = deck::card_answers(front, &ords);
+    assert_eq!(got.into_iter().collect::<Vec<_>>(), vec![(11, "XII".to_string()), (12, "toward".to_string())]);
+    assert!(deck::card_answers("Plain basic note", &ords).is_empty());
+}
+
+fn cloze_note(id: i64, front: &str, answers: &[(i64, &str)]) -> Note {
+    let cards: Vec<i64> = answers.iter().map(|a| a.0).collect();
+    Note {
+        note_id: id,
+        card_ids: cards.clone(),
+        suspended_card_ids: cards,
+        deck: "AnKing".into(),
+        text: front.into(),
+        front: Some(front.into()),
+        card_answers: Some(answers.iter().map(|(c, a)| (*c, a.to_string())).collect()),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn only_the_sibling_that_tests_the_fact_and_number_conflicts() {
+    let notes = vec![
+        cloze_note(1, "CN XII lesion: the tongue deviates toward the side of the lesion", &[(11, "XII"), (12, "toward")]),
+        cloze_note(2, "Jaundice is clinically visible when serum bilirubin exceeds 2.5 mg/dL", &[(21, "2.5 mg/dL")]),
+        cloze_note(3, "Thoracic duct drains into the left subclavian vein", &[(31, "left subclavian")]),
+    ];
+    let mut index = DeckIndex::new(notes, None, Default::default());
+    index.embed_all(64, |_, _| {}, None).unwrap();
+    let chunk = |id: &str, page, text: &str| Chunk { id: id.into(), page, title: String::new(), text: text.into(), context: String::new() };
+    let chunks = vec![
+        chunk("p1-1", 1, "Tongue deviates toward the side of the lesion"),
+        chunk("p2-1", 2, "Jaundice is clinically visible when serum bilirubin exceeds 3 mg/dL"),
+    ];
+    let t = Thresholds { covered: Some(0.4), related: Some(0.3), ..Default::default() };
+    let report = match_chunks(&index, &chunks, &t, &MatchOptions::default()).unwrap();
+    let plan: std::collections::HashMap<i64, &UnsuspendNote> = report.unsuspend.notes.iter().map(|e| (e.note_id, e)).collect();
+    assert_eq!(plan[&1].card_ids, vec![12]);
+    assert!(plan[&1].answer_in_lecture);
+    assert!(plan[&1].cards[0].question.starts_with("CN XII lesion: the tongue deviates [...]"));
+    assert!(!plan.contains_key(&2) && !report.unsuspend.card_ids.contains(&21));
+    let jaundice = &report.chunks[1];
+    assert_eq!(jaundice.status, "conflict");
+    assert_eq!(jaundice.conflicts[0].quantities[0].unit, "mg/dl");
+    assert_eq!(report.summary.conflict, 1);
+    let prompt = build_prompt(&report, "lecture", 24000);
+    assert!(prompt.contains("## Conflicts") && prompt.contains("lecture [3.0] vs card [2.5] mg/dl"));
+    assert!(report.unsuspend.instructions.contains("judge every note"));
+}
+
+#[test]
+fn list_clozes_and_cut_sentences_are_flagged() {
+    let p = quotes::form_problems("Causes: {{c1::a}}, {{c1::b}}, {{c1::c}} (and more");
+    assert_eq!(p.len(), 2);
+    assert!(p[0].starts_with("c1 hides 3 items"));
+    assert!(p[1].starts_with("unpaired ()"));
+    assert!(quotes::form_problems("{{c1::a}} and {{c2::b}}").is_empty());
+}
+
+#[test]
+fn named_answer_reaches_candidates() {
+    let notes = vec![
+        cloze_note(1, "Bloody diarrhoea due to infection is known as dysentery", &[(11, "dysentery")]),
+        cloze_note(2, "Hematochezia is bright red blood in the stool", &[(21, "bright red blood")]),
+    ];
+    // A 2-note deck has no rare terms.
+    let index = DeckIndex::new(notes, None, Default::default()).with_answer_min_weight(0.5);
+    let line = "Dysentery: frequent watery stools with blood and mucus";
+    assert_eq!(index.answered(line), [0].into_iter().collect());
+    let hit = &index.search(line, 2, 50).unwrap()[0];
+    assert!(hit.doc == 0 && hit.answer_named);
+    let chunks = vec![Chunk { id: "p1-1".into(), page: 1, title: String::new(), text: line.into(), context: String::new() }];
+    let t = Thresholds { covered: Some(0.95), related: Some(0.3), ..Default::default() };
+    let report = match_chunks(&index, &chunks, &t, &MatchOptions::default()).unwrap();
+    assert!(report.unsuspend.card_ids.is_empty());
+    assert_eq!(report.unsuspend.candidates[0].note_id, 1);
+    assert!(report.summary.candidates_to_judge >= 1 && report.unsuspend.instructions.contains("include_note_ids"));
+}
+
+#[test]
+fn chunks_keep_their_heading_as_context() {
+    let text = "Sialadenitis\n\u{2022} Acute inflammation of salivary glands\n\u{2022} Commonly due to mumps or bacterial infection";
+    let slides: Vec<Slide> = serde_json::from_value(serde_json::json!([{"n": 1, "title": "", "text": text}])).unwrap();
+    let chunks = chunks_from_slides(&slides);
+    let last = chunks.last().unwrap();
+    assert!(last.text.starts_with("Commonly due to mumps"));
+    assert_eq!(last.context, "Sialadenitis");
+}
+
+#[test]
+fn candidates_keep_only_cards_whose_answer_the_line_says() {
+    let notes = vec![
+        cloze_note(1, "Acute pancreatitis: most common cause is gallstones; second is alcohol", &[(11, "gallstones"), (12, "alcohol")]),
+        cloze_note(2, "Pancreatitis causes epigastric pain radiating to the back", &[(21, "back")]),
+    ];
+    let index = DeckIndex::new(notes, None, Default::default());
+    let chunks = vec![Chunk {
+        id: "p1-1".into(),
+        page: 1,
+        title: String::new(),
+        text: "Causes of pancreatitis: gallstones, hypertriglyceridaemia".into(),
+        context: String::new(),
+    }];
+    let t = Thresholds { covered: Some(0.99), related: Some(0.05), ..Default::default() };
+    let report = match_chunks(&index, &chunks, &t, &MatchOptions::default()).unwrap();
+    let cands: std::collections::HashMap<i64, _> = report.unsuspend.candidates.iter().map(|c| (c.note_id, c)).collect();
+    assert!(!cands.contains_key(&2)); // hides 'back', which the line never says
+    assert_eq!(cands[&1].cards.iter().map(|c| c.card_id).collect::<Vec<_>>(), vec![11]);
+    assert!(cands[&1].answer_in_lecture);
 }

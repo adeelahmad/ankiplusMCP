@@ -82,8 +82,12 @@ pub fn install_uv() -> Result<PathBuf, String> {
     Ok(dst)
 }
 
+/// Python the server runs on. uv otherwise takes the newest release, and a brand-new
+/// CPython (3.15) has no onnxruntime wheels yet, so `ankiplusmcp[all]` would not install.
+pub const PYTHON: &str = "3.13";
+
 pub fn server_args(extra: &[String]) -> Vec<String> {
-    let mut args = vec!["tool".into(), "run".into(), "--from".into(), py_spec(), SERVER.into()];
+    let mut args = vec!["tool".into(), "run".into(), "--python".into(), PYTHON.into(), "--from".into(), py_spec(), SERVER.into()];
     args.extend(extra.iter().cloned());
     args
 }
@@ -193,9 +197,9 @@ mod tests {
         assert_eq!((v["mcpServers"]["other"]["command"].as_str(), v["theme"].as_str()), (Some("o"), Some("dark")));
         assert_eq!(registered(&file), Some(b.clone()));
         let args: Vec<&str> = b["args"].as_array().unwrap().iter().map(|a| a.as_str().unwrap()).collect();
-        assert_eq!(&args[..2], &["tool", "run"]);
-        assert!(args[3].contains(&format!("release-v{VERSION}.zip")));
-        assert_eq!(&args[4..], &["ankiplusmcp", "serve", "--source-root", "/docs"]);
+        assert_eq!(&args[..4], &["tool", "run", "--python", PYTHON]);
+        assert!(args[5].contains(&format!("release-v{VERSION}.zip")));
+        assert_eq!(&args[6..], &["ankiplusmcp", "serve", "--source-root", "/docs"]);
         // Not JSON: untouched.
         std::fs::write(&file, "{ // comment\n}").unwrap();
         assert!(register(&file, a).unwrap_err().contains("left untouched"));

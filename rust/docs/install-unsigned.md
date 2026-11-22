@@ -4,21 +4,34 @@ These test builds are not signed yet, so macOS and Windows ask once before they 
 
 ## Before you start
 
-- macOS 13.4 (Ventura) or later, or Windows 10/11.
+- An Apple Silicon Mac with macOS 13.4 (Ventura) or later, or Windows 10/11 (64-bit).
 - Anki is installed and you have opened it at least once.
 - Claude Desktop is installed and you are signed in (https://claude.ai/download).
 - Card writing goes through the AnkiMCP add-on in Anki, which needs to be installed in Anki as before.
 
 ## macOS
 
-1. Open `AnkiPlus_*.dmg` and drag **AnkiPlus** into **Applications**.
-2. In Applications, **right-click** (or Control-click) AnkiPlus and choose **Open**, then **Open** again.
-   A double-click on an unsigned app only shows "cannot be opened". The right-click is needed once.
-3. On macOS 15 or later, if there is no Open button: open **System Settings → Privacy & Security**,
-   scroll down to "AnkiPlus was blocked", click **Open Anyway** and enter your password.
+**Easiest: the installer package.** Download `AnkiPlus_*_aarch64.pkg` and open it.
 
-Pick `AppleSilicon` for M1/M2/M3/M4 Macs and `Intel` for older ones. To check, open the Apple menu →
-About This Mac and look for "Chip: Apple" or "Processor: Intel".
+1. macOS says it "cannot verify" the installer. Click **Done** (or OK), then open
+   **System Settings → Privacy & Security**, scroll down to the message about AnkiPlus and click
+   **Open Anyway**, then enter your password.
+2. Click through the installer. It puts AnkiPlus in Applications and clears the security flag,
+   so from then on AnkiPlus opens with a normal double-click.
+
+**No prompts at all (one line in Terminal):** open **Terminal** (Applications → Utilities), paste this,
+press Return, and enter your Mac password if asked. It downloads the newest build, installs it and opens it.
+
+```
+curl -fsSL https://raw.githubusercontent.com/adeelahmad/ankiplusMCP/main/scripts/install-desktop.sh | sh
+```
+
+**Or the disk image:** open `AnkiPlus_*.dmg`, drag **AnkiPlus** into **Applications**, then **right-click**
+AnkiPlus → **Open** → **Open** (once). If there is no Open button, use **Open Anyway** in Privacy & Security
+as above, or paste `xattr -dr com.apple.quarantine /Applications/AnkiPlus.app` into Terminal.
+
+This build is for Apple Silicon Macs (M1 or newer). To check, open the Apple menu → About This Mac and
+look for "Chip: Apple". Intel Macs are not supported yet.
 
 ## Windows
 

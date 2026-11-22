@@ -20,6 +20,11 @@ use serde_json::{Map, Value};
 use std::collections::{HashMap, HashSet};
 
 pub const RRF_K: f64 = 60.0;
+/// With 0.5 x score: a named-answer card with score 0.6 reaches 0.66 (related, not covered).
+pub const ANSWER_FLOOR: f64 = 0.36;
+pub const ANSWER_MAX_WORDS: usize = 4;
+/// A specific term (a disease, a nerve), not "type 2" or "gastric".
+pub const ANSWER_MIN_WEIGHT: f64 = 6.0;
 
 /// Something that turns text into vectors. Vectors need not be normalised.
 pub trait Embedder {
@@ -34,6 +39,8 @@ pub struct Hit {
     pub doc: usize,
     pub score: f64,
     pub overlap: f64,
+    /// The note's card hides a phrase the query names.
+    pub answer_named: bool,
     pub reverse: f64,
     pub lexical: f64,
     pub cosine: Option<f64>,
@@ -69,6 +76,8 @@ pub struct DeckIndex {
     unseen: f64,
     fronts: Vec<(HashSet<String>, f64)>,
     by_tag: HashMap<String, Vec<usize>>,
+    answers: HashMap<Vec<String>, HashSet<usize>>,
+    answer_min_weight: f64,
 }
 
 pub fn normalise(v: &mut [f32]) {
@@ -94,10 +103,58 @@ impl DeckIndex {
             unseen: 0.0,
             fronts: vec![],
             by_tag: HashMap::new(),
+            answers: HashMap::new(),
+            answer_min_weight: ANSWER_MIN_WEIGHT,
         };
         index.build_bm25();
         index.build_tags();
+        index.build_answers();
         index
+    }
+
+    /// Rebuild the answer phrases with another minimum weight (tests on tiny decks).
+    pub fn with_answer_min_weight(mut self, weight: f64) -> Self {
+        self.answer_min_weight = weight;
+        self.build_answers();
+        self
+    }
+
+    /// Phrase -> notes whose card hides that phrase. A lecture line that names the hidden
+    /// answer of a card ("Dysentery: blood and mucus in stools" vs "Bloody diarrhoea due to
+    /// infection is known as {{c1::dysentery}}") is a strong candidate that wording alone misses.
+    fn build_answers(&mut self) {
+        let mut answers: HashMap<Vec<String>, HashSet<usize>> = HashMap::new();
+        for (i, note) in self.notes.iter().enumerate() {
+            for answer in note.card_answers.iter().flat_map(|a| a.values()) {
+                for part in answer.split(" \u{2026} ") {
+                    let words = tokenize(part);
+                    if !words.is_empty()
+                        && words.len() <= ANSWER_MAX_WORDS
+                        && words.iter().map(|t| self.weight(t)).sum::<f64>() >= self.answer_min_weight
+                    {
+                        answers.entry(words).or_default().insert(i);
+                    }
+                }
+            }
+        }
+        self.answers = answers;
+    }
+
+    /// Notes whose hidden answer appears, as a whole phrase, in `text`.
+    pub fn answered(&self, text: &str) -> HashSet<usize> {
+        let words = tokenize(text);
+        let mut found = HashSet::new();
+        if self.answers.is_empty() {
+            return found;
+        }
+        for size in 1..=ANSWER_MAX_WORDS {
+            for start in 0..(words.len() + 1).saturating_sub(size) {
+                if let Some(docs) = self.answers.get(&words[start..start + size]) {
+                    found.extend(docs);
+                }
+            }
+        }
+        found
     }
 
     fn build_bm25(&mut self) {
@@ -268,8 +325,11 @@ impl DeckIndex {
                 cos = Some(sims);
             }
         }
+        let answered = self.answered(text);
+        let mut named: Vec<usize> = answered.iter().copied().collect();
+        named.sort_unstable();
         let mut fused: IndexMap<usize, f64> = IndexMap::new();
-        for ranks in [&lexical, &dense] {
+        for ranks in [&lexical, &dense, &named] {
             for (rank, &doc) in ranks.iter().enumerate() {
                 *fused.entry(doc).or_default() += 1.0 / (RRF_K + rank as f64);
             }
@@ -290,14 +350,19 @@ impl DeckIndex {
                     lex /= 2.0; // one shared word (or only numbers) is a coincidence, not the same fact
                 }
                 let cosine = cos.as_ref().map(|c| (c[doc] as f64).max(0.0));
-                let score = match cosine {
+                let mut score = match cosine {
                     None => lex,
                     Some(c) => lex.max(0.3 * lex + 0.7 * c),
                 };
+                let answer_named = answered.contains(&doc);
+                if answer_named {
+                    score = score.max(ANSWER_FLOOR + 0.5 * score); // the card hides a phrase this line names
+                }
                 Hit {
                     doc,
                     score: round_to(score, 4),
                     overlap: round_to(overlap, 4),
+                    answer_named,
                     reverse: round_to(reverse, 4),
                     lexical: round_to(lex, 4),
                     cosine: cosine.map(|c| round_to(c, 4)),
