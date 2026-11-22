@@ -45,6 +45,7 @@ def _marked(text):
 
 def _split(page, title, text, skip=()):
     pieces, joined, after_bullet = [], [], False
+    contexts, lead = [], ''   # the heading a piece sits under ("Sialadenitis" for "Commonly due to mumps")
     for line, bulleted in _marked(text):
         if line in skip or (title and line.strip() == title.strip()):
             continue
@@ -56,12 +57,18 @@ def _split(page, title, text, skip=()):
             pieces[-1] = pieces[-1] + ' ' + line
             joined[-1] += 1
         else:
+            if not bulleted and len(tokenize(line)) <= 6:
+                lead = line.rstrip(':')
+            contexts.append('' if (not bulleted and lead == line.rstrip(':')) else lead)
             pieces.append(line)
             joined.append(1)
     out = []
-    for piece in pieces:
+    for piece, context in zip(pieces, contexts):
         if len(tokenize(piece)) >= 2:
-            out.append({'id': f'p{page}-{len(out) + 1}', 'page': page, 'title': title or '', 'text': piece[:MAX_CHARS * 2]})
+            chunk = {'id': f'p{page}-{len(out) + 1}', 'page': page, 'title': title or '', 'text': piece[:MAX_CHARS * 2]}
+            if context and context.lower() not in piece.lower():
+                chunk['context'] = context
+            out.append(chunk)
     return out
 
 

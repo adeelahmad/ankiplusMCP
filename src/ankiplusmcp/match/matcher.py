@@ -45,6 +45,7 @@ class Thresholds:
     covered: float | None = None
     related: float | None = None
     per_chunk: int = 3          # existing notes accepted per covered chunk
+    candidates: int = 3         # below 'covered': notes per chunk offered for the host to judge
     concepts: int = 5           # concept neighbours listed per covered chunk
     max_group: int = 150        # topic tags larger than this are too broad to expand
 
@@ -67,7 +68,7 @@ def _summary(index, hit, chunk_terms=None):
            'active': len(note.get('card_ids', [])) > len(note.get('suspended_card_ids', [])),
            'preview': note['text'].replace('\n', ' ')[:160]}
     if isinstance(hit, dict):
-        out.update(score=hit['score'], overlap=hit['overlap'], cosine=hit['cosine'])
+        out.update(score=hit['score'], overlap=hit['overlap'], cosine=hit['cosine'], answer_named=hit.get('answer_named', False))
     return out
 
 
@@ -75,7 +76,7 @@ def match_chunks(index, chunks, thresholds=None, k=5, expand_concepts=True, unsu
     """``already_unsuspended``: CARD ids a previous lecture already unsuspended; never proposed again."""
     already = set(already_unsuspended)
     t = (thresholds or Thresholds()).resolve(index.vectors is not None)
-    rows, unsuspend = [], {}
+    rows, unsuspend, candidates = [], {}, {}
 
     skipped = set()
 
@@ -87,7 +88,7 @@ def match_chunks(index, chunks, thresholds=None, k=5, expand_concepts=True, unsu
             return
         # A cloze note: propose only the siblings whose hidden answer is in the lecture line.
         cards = [c for c in summary['cards'] if c['card_id'] in pending]
-        terms = set(tokenize(chunk['text']))
+        terms = set(tokenize(chunk['text'] + ' ' + chunk.get('context', '')))
         testing = [c for c in cards if set(tokenize(c['answer'])) & terms]
         if testing:
             pending = [c['card_id'] for c in testing]
@@ -103,7 +104,8 @@ def match_chunks(index, chunks, thresholds=None, k=5, expand_concepts=True, unsu
             entry['reason'] = 'match'
 
     for chunk in chunks:
-        hits = index.search(chunk['text'], k=k)
+        query = f"{chunk['context']}: {chunk['text']}" if chunk.get('context') else chunk['text']
+        hits = index.search(query, k=k)
         best = hits[0]['score'] if hits else 0.0
         status = 'covered' if best >= t.covered else 'related' if best >= t.related else 'gap'
         matches = [_summary(index, h) for h in hits if h['score'] >= t.related][:max(k, t.per_chunk)]
@@ -138,6 +140,13 @@ def match_chunks(index, chunks, thresholds=None, k=5, expand_concepts=True, unsu
                     break
         for m in accepted:
             claim(m, chunk, 'match')
+        taken = {m['note_id'] for m in accepted} | {c['note_id'] for c in clashes}
+        for m in [m for m in matches if m['note_id'] not in taken and m['suspended_card_ids']][:t.candidates]:
+            entry = candidates.setdefault(m['note_id'], {'note_id': m['note_id'], 'score': m['score'], 'chunks': [],
+                                                         'preview': m['preview'], 'cards': m['cards'],
+                                                         'suspended_card_ids': [c for c in m['suspended_card_ids'] if c not in already],
+                                                         'answer_named': m.get('answer_named', False)})
+            entry['chunks'].append(chunk['id'])
         if unsuspend_concepts and status == 'covered':
             for c in concepts:
                 claim(c, chunk, 'concept')
@@ -149,13 +158,17 @@ def match_chunks(index, chunks, thresholds=None, k=5, expand_concepts=True, unsu
     counts = {s: sum(r['status'] == s for r in rows) for s in ('covered', 'related', 'gap', 'conflict')}
     return {'thresholds': asdict(t), 'embeddings': index.vectors is not None,
             'summary': dict(counts, chunks=len(rows), notes_to_unsuspend=len(plan), cards_to_unsuspend=len(card_ids),
+                            candidates_to_judge=len([c for c in candidates if c not in unsuspend]),
                             already_unsuspended=len(skipped)),
             'chunks': rows,
             'unsuspend': {'card_ids': card_ids, 'notes': plan, 'performed_anki_operations': 0,
+                          'candidates': sorted((c for c in candidates.values() if c['note_id'] not in unsuspend),
+                                               key=lambda c: -c['score']),
                           'instructions': JUDGE}}
 
 
 JUDGE = ('Before showing this list, judge every note: read each card\'s question and answer (not the Extra) and keep it '
          'only if that card tests the lecture line it matched. Drop cards that are merely on the same topic, and pass the '
-         'dropped notes as exclude_note_ids to prepare_unsuspend. Then show the user the list; after approval, unsuspend '
-         'these CARD ids with the official Anki MCP.')
+         'dropped notes as exclude_note_ids to prepare_unsuspend. Also judge the candidates (scored below covered; '
+         'answer_named means the card hides a term the line names): add the ones that do test a lecture line with '
+         'include_note_ids. Then show the user the list; after approval, unsuspend these CARD ids with the official Anki MCP.')
