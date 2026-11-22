@@ -261,12 +261,11 @@ class Matching:
         entries = list(report['unsuspend']['notes'])
         for cand in report['unsuspend'].get('candidates', []):
             if cand['note_id'] in included:
-                lines = ' '.join(texts.get(c, '') for c in cand['chunks'])
-                terms = set(match.tokenize(lines))
-                testing = [c['card_id'] for c in cand['cards'] if set(match.tokenize(c['answer'])) & terms]
-                cards = testing or [c['card_id'] for c in cand['cards']] or cand.get('suspended_card_ids', [])
+                # the matcher already kept only the cards whose hidden answer the lecture line contains
+                cards = [c['card_id'] for c in cand['cards']] or cand.get('suspended_card_ids', [])
                 entries.append({'note_id': cand['note_id'], 'card_ids': cards, 'reason': 'judged', 'preview': cand['preview'],
-                                'chunks': cand['chunks'], 'cards': cand['cards'], 'answer_in_lecture': bool(testing)})
+                                'chunks': cand['chunks'], 'cards': cand['cards'],
+                                'answer_in_lecture': cand.get('answer_in_lecture', False)})
         for entry in entries:
             if entry['note_id'] in excluded:
                 continue

@@ -36,7 +36,8 @@ def _words(im, psm, min_conf, min_len, encoded=None):
         from ..common.errors import CardsError
         raise CardsError('E24', 'OCR: field tesseract unavailable or failed',
                          'install Tesseract with English data and retry extraction') from exc
-    rows = list(csv.DictReader(io.StringIO(process.stdout.decode()), delimiter='\t'))
+    # QUOTE_NONE: OCR text often holds a stray " which would otherwise swallow the rows after it
+    rows = list(csv.DictReader(io.StringIO(process.stdout.decode()), delimiter='\t', quoting=csv.QUOTE_NONE))
     d = {key: [row[key] for row in rows] for key in
          ('text','conf','left','top','width','height','block_num','par_num','line_num')}
     for key in ('left','top','width','height'):
@@ -185,6 +186,15 @@ def _looks_like_label(r):
     return len(alpha) >= 4
 
 
+UNION_MIN_CONF = 60
+
+
+def _overlaps(a, b):
+    """True when two word boxes (pixel left/top/width/height) share any area."""
+    return (a["left"] < b["left"] + b["width"] and b["left"] < a["left"] + a["width"]
+            and a["top"] < b["top"] + b["height"] and b["top"] < a["top"] + a["height"])
+
+
 def extract(path, min_conf=20, min_len=2, pad=0.004, group=True):
     from PIL import Image
     img = Image.open(path)
@@ -196,15 +206,24 @@ def extract(path, min_conf=20, min_len=2, pad=0.004, group=True):
     buffer = io.BytesIO()
     binim.save(buffer, format="TIFF", compression="raw")
     encoded = buffer.getvalue()
-    best, best_score = [], -1
+    best, best_score, runs = [], -1, []
     for psm in PSM_MODES:
         ws = _words(binim, psm, min_conf, min_len, encoded)
         merged = merge_line_words(ws)
         # score: prefer more distinct alphabetic labels, then higher mean conf
         alpha = [m for m in merged if any(c.isalpha() for c in m["text"])]
+        runs.append(alpha)
         score = (len(alpha), sum(m["conf"] for m in alpha) / max(len(alpha), 1))
         if score > (best_score if isinstance(best_score, tuple) else (-1, 0)):
             best_score, best, best_psm = score, alpha, psm
+    # Each page-segmentation mode misses different labels (on an atlas figure, mode 11 can
+    # drop "Vallate" while mode 6 drops "Fungiform"). Add confident labels from the other
+    # modes wherever the chosen mode found nothing.
+    best = list(best)
+    for alpha in runs:
+        for m in alpha:
+            if m["conf"] >= UNION_MIN_CONF and not any(_overlaps(m, b) for b in best):
+                best.append(m)
 
     regions = []
     for m in best:

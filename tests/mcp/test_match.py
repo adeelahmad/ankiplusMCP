@@ -545,3 +545,15 @@ def test_chunks_keep_their_heading_as_context():
     text = 'Sialadenitis\n• Acute inflammation of salivary glands\n• Commonly due to mumps or bacterial infection'
     chunks = chunks_from_slides([{'n': 1, 'title': '', 'text': text}])
     assert chunks[-1]['text'].startswith('Commonly due to mumps') and chunks[-1]['context'] == 'Sialadenitis'
+
+
+def test_candidates_keep_only_cards_whose_answer_the_line_says():
+    notes = [_note(1, 'Acute pancreatitis: most common cause is gallstones; second is alcohol', [11, 12],
+                   {11: 'gallstones', 12: 'alcohol'}),
+             _note(2, 'Pancreatitis causes epigastric pain radiating to the back', [21], {21: 'back'})]
+    index = match.DeckIndex(notes)
+    chunks = [{'id': 'p1-1', 'page': 1, 'title': '', 'text': 'Causes of pancreatitis: gallstones, hypertriglyceridaemia'}]
+    report = match.match_chunks(index, chunks, match.Thresholds(covered=.99, related=.05))
+    cands = {c['note_id']: c for c in report['unsuspend']['candidates']}
+    assert 2 not in cands                                   # hides 'back', which the line never says
+    assert [c['card_id'] for c in cands[1]['cards']] == [11] and cands[1]['answer_in_lecture']
