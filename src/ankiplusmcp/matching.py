@@ -145,20 +145,87 @@ class Matching:
         if not chunks:
             raise DomainError('SOURCE', 'No text chunks found in the source.', 'Run extract_source for scanned PDFs (OCR), or pass highlights.')
         thresholds = match.Thresholds(covered=covered, related=related, per_chunk=per_chunk)
-        report = match.match_chunks(deck, chunks, thresholds, expand_concepts=expand_concepts, unsuspend_concepts=unsuspend_concepts)
-        report.update(index=index, chunk_origin=origin)
+        report = match.match_chunks(deck, chunks, thresholds, expand_concepts=expand_concepts, unsuspend_concepts=unsuspend_concepts,
+                                    already_unsuspended=self._unsuspended(index))
+        match_id = uuid.uuid4().hex
+        report.update(index=index, chunk_origin=origin, match_id=match_id)
         name = (self.store.get(workspace).get('source') or {}).get('name', 'lecture')
-        base = f'match/{uuid.uuid4().hex}'
+        base = f'match/{match_id}'
         self.store.path(workspace, base).mkdir(parents=True)
         self.store.write_json(workspace, f'{base}/report.json', report)
         self.store.write_json(workspace, f'{base}/unsuspend.json', report['unsuspend'])
         from cards.common.files import atomic_write
         atomic_write(self.store.path(workspace, f'{base}/prompt.md'), match.build_prompt(report, name))
         self.store.write_json(workspace, 'latest-match.json', {'artifact': f'{base}/report.json'})
-        return {'summary': report['summary'], 'chunk_origin': origin, 'embeddings': report['embeddings'],
+        return {'match_id': match_id, 'summary': report['summary'], 'chunk_origin': origin, 'embeddings': report['embeddings'],
                 'artifacts': {'report': f'{base}/report.json', 'unsuspend': f'{base}/unsuspend.json', 'prompt': f'{base}/prompt.md'},
                 'performed_anki_operations': 0,
-                'next': 'Read the prompt artifact to draft only the gaps. Show the unsuspend list to the user before unsuspending through Anki MCP.'}
+                'next': 'Read the prompt artifact to draft only the gaps. Call prepare_unsuspend to show the user the cards, unsuspend the approved CARD ids through Anki MCP, then record_unsuspend.'}
+
+    # -- unsuspend: preview -> user approval -> Anki MCP -> log -------------
+    def _unsuspended_path(self, index):
+        return self._index_dir(index) / 'unsuspended.jsonl'
+
+    def _unsuspended(self, index):
+        path = self._unsuspended_path(index)
+        done = set()
+        if path.is_file():
+            for line in path.read_text().splitlines():
+                try: row = json.loads(line)
+                except ValueError: continue
+                if row.get('status') == 'success':
+                    done.update(row.get('card_ids', []))
+        return done
+
+    def _match_id(self, workspace, match_id):
+        if match_id is None:
+            match_id = self.store.read_json(workspace, 'latest-match.json')['artifact'].split('/')[1]
+        if not NAME.fullmatch(match_id):
+            raise DomainError('MATCH', 'Invalid match ID.')
+        return match_id
+
+    def prepare_unsuspend(self, workspace, match_id=None, exclude_note_ids=None, offset=0, limit=50):
+        """The list to show the user: each note with the lecture lines it matched. Writes the approved CARD ids."""
+        match_id = self._match_id(workspace, match_id)
+        report = self.store.read_json(workspace, f'match/{match_id}/report.json')
+        texts = {r['id']: f"p{r['page']}: {r['text'][:120]}" for r in report['chunks']}
+        excluded = set(exclude_note_ids or [])
+        done = self._unsuspended(report.get('index', 'anking'))
+        notes = []
+        for entry in report['unsuspend']['notes']:
+            if entry['note_id'] in excluded:
+                continue
+            cards = [c for c in entry['card_ids'] if c not in done]
+            if cards:
+                notes.append({'note_id': entry['note_id'], 'card_ids': cards, 'reason': entry['reason'],
+                              'card': entry['preview'], 'lecture': [texts[c] for c in entry['chunks'] if c in texts][:3]})
+        card_ids = sorted({c for n in notes for c in n['card_ids']})
+        artifact = f'match/{match_id}/unsuspend-approved.json'
+        self.store.write_json(workspace, artifact, {'match_id': match_id, 'card_ids': card_ids, 'note_ids': [n['note_id'] for n in notes],
+                                                    'excluded_note_ids': sorted(excluded), 'performed_anki_operations': 0})
+        return {'match_id': match_id, 'cards': len(card_ids), 'notes': notes[offset:offset + limit], 'total_notes': len(notes),
+                'card_ids': card_ids, 'artifact': artifact,
+                'instructions': 'Show these notes to the user. Re-run with exclude_note_ids for any they reject. '
+                                'After approval, unsuspend card_ids with the Anki MCP, then call record_unsuspend.'}
+
+    def record_unsuspend(self, workspace, card_ids, status, match_id=None, detail=''):
+        """Log what the host reports it unsuspended, so later lectures never propose those cards again."""
+        from datetime import datetime, timezone
+        match_id = self._match_id(workspace, match_id)
+        report = self.store.read_json(workspace, f'match/{match_id}/report.json')
+        row = {'time': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'workspace': workspace, 'match_id': match_id,
+               'source': (self.store.get(workspace).get('source') or {}).get('name'), 'status': status,
+               'card_ids': sorted(set(card_ids)), 'detail': detail[:500], 'evidence_origin': 'caller_supplied'}
+        line = json.dumps(row) + '\n'
+        with self.store.lock(workspace):
+            with open(self.store.path(workspace, f'match/{match_id}/unsuspend-log.jsonl'), 'a') as out:
+                out.write(line)
+        log = self._unsuspended_path(report.get('index', 'anking'))
+        log.parent.mkdir(parents=True, exist_ok=True)
+        with open(log, 'a') as out:
+            out.write(line)
+        return {'recorded': len(row['card_ids']), 'status': status, 'log': f'match/{match_id}/unsuspend-log.jsonl',
+                'evidence_origin': 'caller_supplied', 'independently_verified': False}
 
     def check_source_support(self, workspace, ids=None):
         from .match.quotes import check_support

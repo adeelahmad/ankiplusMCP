@@ -64,8 +64,13 @@ on thoracic outlet syndrome also surfaces the brachial plexus cards. Question-ba
 tags with more than 150 notes are ignored. Neighbours are only unsuspended with
 `unsuspend_concepts=true`.
 
-**Nothing is changed in Anki.** Show `unsuspend.json` to the user, then unsuspend those CARD ids
-through the Anki MCP.
+**Nothing is changed in Anki.** The unsuspend flow is:
+
+1. `prepare_unsuspend` lists each proposed note with the lecture lines it matched.
+2. The user rejects any that don't fit; call it again with `exclude_note_ids`.
+3. The host unsuspends the returned CARD ids through the Anki MCP.
+4. `record_unsuspend` logs the result. Later lectures skip cards already unsuspended
+   (`already_unsuspended` in the summary).
 
 ## Highlights: card only what the student marked
 

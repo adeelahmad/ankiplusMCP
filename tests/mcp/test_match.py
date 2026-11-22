@@ -250,3 +250,26 @@ def test_highlights_read_from_pdf_annotations(tmp_path, deck):
         assert result['summary']['covered'] == 2
     finally:
         s.close()
+
+
+def test_unsuspend_preview_approve_and_log(tmp_path, deck):
+    s = Service(tmp_path / 'work', [tmp_path])
+    try:
+        text = '# Pump\n- The sodium potassium ATPase pumps 3 sodium out and 2 potassium in\n- Troponin rises within 4 hours of myocardial infarction\n'
+        w = s.store.create('lecture', text=text)['id']
+        wait(s, w, s.index_deck(w, str(deck), deck_prefix='AnKing', embeddings='off', backend='file'))
+        first = s.match_source(w, 'anking')
+        preview = s.prepare_unsuspend(w)
+        assert preview['match_id'] == first['match_id'] and preview['card_ids'] == [1004, 1005, 1006]
+        assert preview['notes'][0]['lecture'][0].startswith('p1: The sodium')
+        trimmed = s.prepare_unsuspend(w, exclude_note_ids=[105])
+        assert trimmed['card_ids'] == [1004, 1005]
+        assert s.store.read_json(w, trimmed['artifact'])['card_ids'] == [1004, 1005]
+        s.record_unsuspend(w, trimmed['card_ids'], 'success')
+        # A later lecture covering the same fact does not propose those cards again.
+        w2 = s.store.create('lecture', text=text)['id']
+        again = s.match_source(w2, 'anking')
+        assert again['summary']['already_unsuspended'] == 2
+        assert s.prepare_unsuspend(w2)['card_ids'] == [1006]
+    finally:
+        s.close()
