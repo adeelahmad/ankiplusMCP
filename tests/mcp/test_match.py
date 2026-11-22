@@ -476,3 +476,11 @@ def test_headings_start_a_new_chunk():
     chunks = [c['text'] for c in chunks_from_slides([{'n': 1, 'title': '', 'text': text}])]
     assert chunks == ['Predisposing Factors: Poor oral hygiene Immunocompromised conditions',
                       'Types of Stomatitis Ulcerative stomatitis']
+
+
+def test_postgres_needs_avx512_on_x86():
+    full = {name: True for name in pgstore.AVX512_NEEDED}
+    assert pgstore.cpu_supported('x86_64', full)
+    assert not pgstore.cpu_supported('x86_64', dict(full, AVX512VPOPCNTDQ=False))   # e.g. AMD Zen 3
+    assert not pgstore.cpu_supported('AMD64', {})
+    assert pgstore.cpu_supported('arm64', {})
