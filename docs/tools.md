@@ -2,7 +2,7 @@
 
 [README](../README.md) · [Setup](setup.md) · [Developer architecture](developer-guide.md)
 
-These are the **40 MCP tools** registered by [server.py](../src/ankiplusmcp/server.py).
+These are the **41 MCP tools** registered by [server.py](../src/ankiplusmcp/server.py).
 Students normally ask their assistant for an outcome; the assistant makes these
 calls. Developers can use this reference to understand the same calls and follow
 them into the code. The tools do no model inference and no Anki collection I/O.
@@ -41,7 +41,7 @@ The [worked study workflow](study-workflow.md) shows reuse-first matching,
 explanatory backs, diagram choices, manual review and the separate Anki handoff.
 The important contracts when combining calls are:
 
-- Collection matching can run without AI: `index_deck` reads a deck export once
+- Collection matching can run without AI: `index_deck` reads the student's Anki collection (or an export) once
   and `match_source` matches a lecture against it. The host still performs the
   actual unsuspension through its Anki MCP. `resolve_target` and `check_cards`
   do not match collections. Source objectives help the assistant decide
@@ -517,23 +517,32 @@ collection; the host must do that through Anki MCP.
 
 ## Matching existing decks (no AI)
 
-These seven tools are the deterministic path from a lecture to existing cards: index
+These eight tools are the deterministic path from a lecture to existing cards: index
 a deck once, then match each lecture against it. Setup and tuning: [matching.md](matching.md).
 
 ### index_deck
 
 **Use it to:** index an existing deck such as AnKing so lectures can be matched against it.
 
-**Inputs:** `workspace` (hosts the job), `deck_path` (an `.apkg`, `.colpkg`, `.anki2`
-collection or `.json`/`.jsonl` note list under a source root), optional `name`
+**Inputs:** `workspace` (hosts the job), optional `deck_path` (an `.apkg`, `.colpkg`, `.anki2`
+collection or `.json`/`.jsonl` note list under a source root; leave it out to read the
+student's own Anki collection, no export needed), `profile` (Anki profile name; default:
+the only profile or `User 1`), `name`
 (default `anking`), `deck_prefix`, `fields`, `embeddings` (`auto`/`off`/`required`),
 `model`, `backend` (`auto`/`postgres`/`file`). **Returns:** a job; its result gives
-note and suspended-card counts and whether embeddings were built.
+note and suspended-card counts, whether embeddings were built, and `embedded`/`reused`:
+re-running it after an AnkiHub sync re-embeds only new or changed notes.
 
-**Example:** `index_deck {"workspace":"WORKSPACE","deck_path":"/abs/AnKing.apkg","deck_prefix":"AnKing"}`.
+**Example:** `index_deck {"workspace":"WORKSPACE","deck_prefix":"AnKing"}` (own collection) or
+`index_deck {"workspace":"WORKSPACE","deck_path":"/abs/AnKing.apkg","deck_prefix":"AnKing"}`.
 
 **Implementation:** [Matching.index_deck](../src/ankiplusmcp/matching.py). Reads a copy
 of the deck; never changes the collection.
+
+### list_anki_profiles
+
+**Use it to:** see the Anki profiles on this computer that `index_deck` can read without an
+export (profile name, collection path, size, last change). **Inputs:** none.
 
 ### list_indexes
 

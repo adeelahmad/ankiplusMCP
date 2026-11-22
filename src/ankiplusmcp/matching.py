@@ -48,11 +48,26 @@ class Matching:
             return pgstore.PostgresIndexStore(self.store.root / 'pg', name)
         return FileIndexStore(self._index_dir(name))
 
-    def index_deck(self, workspace, deck_path, name='anking', deck_prefix=None, fields=None, embeddings='auto', model=None, backend='auto'):
-        """Build (or rebuild) a named index from a deck export. Runs as a job hosted by ``workspace``."""
+    def list_anki_profiles(self):
+        from .match import profiles
+        return {'base': str(profiles.anki_base()), 'profiles': profiles.list_profiles()}
+
+    def _profile_collection(self, profile):
+        from .match import profiles
+        try:
+            return profiles.collection_for(profile)
+        except FileNotFoundError as exc:
+            raise DomainError('SOURCE', str(exc), 'Call list_anki_profiles, or pass deck_path to an export.') from exc
+
+    def index_deck(self, workspace, deck_path=None, name='anking', deck_prefix=None, fields=None, embeddings='auto', model=None, backend='auto', profile=None):
+        """Build (or update) a named index. Runs as a job hosted by ``workspace``.
+
+        With no ``deck_path`` (or with ``profile``), reads the student's own Anki collection
+        straight from the Anki profile folder: no export. Rebuilding an existing index re-embeds
+        only notes that are new or changed."""
         self.store.get(workspace)
         requested, backend = backend, self._backend(backend)
-        source = self._deck_file(deck_path)
+        source = self._profile_collection(profile) if (profile or not deck_path) else self._deck_file(deck_path)
         folder = self._index_dir(name)
 
         def run(cancel, report):
@@ -71,7 +86,15 @@ class Matching:
             report(f'indexing {len(notes)} notes')
             index = match.DeckIndex(notes, embedder=embedder,
                                     meta={'name': name, 'source': source.name, 'deck_prefix': deck_prefix, 'fields': fields})
-            index.embed_all(progress=lambda done, total: report(f'embedding {done}/{total}'))
+            previous = None
+            if embedder is not None and (folder / 'meta.json').is_file():
+                try:
+                    old_meta = json.loads((folder / 'meta.json').read_text())
+                    if old_meta.get('embedding_model') == embedder.name:
+                        previous = match.DeckIndex.load(folder, embedder=embedder, store=self._index_store(name, old_meta.get('backend', 'file')))
+                except Exception:
+                    previous = None  # an unreadable or older-format index is simply rebuilt
+            counts = index.embed_all(progress=lambda done, total: report(f'embedding {done}/{total}'), previous=previous)
             if cancel(): raise DomainError('CANCELLED', 'Cancelled.')
             used, note = backend, None
             try:
@@ -87,7 +110,8 @@ class Matching:
             (folder / 'meta.json').write_text(json.dumps(dict(meta, backend=used), indent=2, ensure_ascii=False) + '\n')
             self.__dict__.get('_indexes', {}).pop(name, None)
             return {'index': name, 'backend': used, **{k: meta[k] for k in ('notes', 'suspended_cards', 'embeddings')},
-                    'embedding_model': meta.get('embedding_model'), **({'warning': note} if note else {})}
+                    'embedding_model': meta.get('embedding_model'), 'source': str(source), **counts,
+                    **({'warning': note} if note else {})}
         return self.jobs.submit(workspace, 'index_deck', run)
 
     def list_indexes(self):

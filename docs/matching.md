@@ -10,7 +10,21 @@ deck export ──index_deck──▶ index (BM25 + local embeddings)
 lecture PDF / highlights ──match_source──▶ report.json · unsuspend.json · prompt.md
 ```
 
-## 1. Export the deck
+## 1. Point it at your Anki (no export needed)
+
+By default `index_deck` reads the student's own collection straight from the Anki profile
+folder (`~/Library/Application Support/Anki2/<profile>/collection.anki2` on macOS,
+`%APPDATA%\Anki2` on Windows, `~/.local/share/Anki2` on Linux; `ANKI_BASE` overrides it).
+It reads a private copy, so Anki can stay open, and nothing in the collection changes.
+`list_anki_profiles` shows the profiles; pass `profile` when there is more than one.
+Because it reads the live collection, cards the student has already unsuspended are known.
+
+**Updates cost seconds.** Run `index_deck` again after an AnkiHub sync: notes whose text
+is unchanged keep their embeddings, and only new or edited notes are embedded again (the
+result reports `embedded` and `reused`). A full first index of the 33,000-note AnKing deck
+takes about 50 minutes on 4 CPU cores; a typical sync re-embeds a few hundred notes.
+
+### Or export the deck
 
 In Anki: *File → Export*, choose **Anki Deck Package (.apkg)**, select the deck, untick
 "Include media" (much smaller). Newer Anki versions write a compressed format; the optional
@@ -21,12 +35,14 @@ Put the file inside a folder AnkiPlus may read (`--source-root`).
 ## 2. Index it once
 
 ```
-index_deck {"workspace":"W","deck_path":"/abs/AnKing.apkg","deck_prefix":"AnKing"}
+index_deck {"workspace":"W","deck_prefix":"AnKing"}                                  # own Anki
+index_deck {"workspace":"W","deck_path":"/abs/AnKing.apkg","deck_prefix":"AnKing"}   # an export
 ```
 
 or from a terminal (no AI host needed):
 
 ```
+ankiplusmcp match --profile --deck-prefix AnKing --pdf L025.pdf --out builds/L025
 ankiplusmcp match --deck AnKing.apkg --deck-prefix AnKing --pdf L025.pdf --out builds/L025
 ```
 

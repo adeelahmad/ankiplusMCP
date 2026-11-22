@@ -3,8 +3,10 @@
     ankiplusmcp match --deck AnKing.apkg --pdf lecture.pdf --out builds/L025
     ankiplusmcp match --deck AnKing.apkg --highlights highlights.json --out builds/L025
     ankiplusmcp match --deck AnKing.apkg --evaluate labels.json
+    ankiplusmcp match --profile "User 1" --pdf lecture.pdf --out builds/L025   # no export
 
-The deck index is cached per deck file (size + mtime) under ``--index-dir``.
+The deck index is cached per deck file under ``--index-dir``; when the file changes (an
+AnkiHub sync, a new export), only new or edited notes are re-embedded.
 """
 import argparse
 import hashlib
@@ -24,27 +26,42 @@ def _store(args, key):
 
 
 def _index(args):
-    deck = Path(args.deck).expanduser().resolve()
+    if args.deck:
+        deck = Path(args.deck).expanduser().resolve()
+    else:
+        from .profiles import collection_for
+        deck = collection_for(args.profile)
     stat = deck.stat()
-    key = 'd' + hashlib.sha256(f'{deck}|{stat.st_size}|{stat.st_mtime_ns}|{args.deck_prefix}|{args.embeddings}'.encode()).hexdigest()[:16]
+    stamp = f'{stat.st_size}|{stat.st_mtime_ns}'
+    key = 'd' + hashlib.sha256(f'{deck}|{args.deck_prefix}|{args.embeddings}'.encode()).hexdigest()[:16]
     marker = Path(args.index_dir) / key / 'meta.json'
     embedder = get_embedder(args.embeddings)
     store = _store(args, key)
+    previous = None
     if marker.is_file() and not args.rebuild:
-        return DeckIndex.load(marker.parent, embedder=embedder, store=store)
+        try:
+            previous = DeckIndex.load(marker.parent, embedder=embedder, store=store)
+        except ValueError:  # older index format: rebuild from scratch
+            previous = None
+        if previous is not None and json.loads(marker.read_text()).get('deck_stamp') == stamp:
+            return previous
     print(f'indexing {deck.name} ...', file=sys.stderr)
     notes = load_deck(deck, deck_prefix=args.deck_prefix)
     index = DeckIndex(notes, embedder=embedder, meta={'source': deck.name, 'deck_prefix': args.deck_prefix})
-    index.embed_all(progress=lambda d, t: print(f'\rembedding {d}/{t}', end='', file=sys.stderr))
+    counts = index.embed_all(progress=lambda d, t: print(f'\rembedding {d}/{t}', end='', file=sys.stderr), previous=previous)
+    if counts['reused']:
+        print(f"\nre-embedded {counts['embedded']} new or changed notes, reused {counts['reused']}", file=sys.stderr)
     meta = index.save(marker.parent, store)
     marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text(json.dumps(dict(meta, backend=args.backend), indent=2) + '\n')
+    marker.write_text(json.dumps(dict(meta, backend=args.backend, deck_stamp=stamp), indent=2) + '\n')
     return index
 
 
 def main(argv=None):
     p = argparse.ArgumentParser(prog='ankiplusmcp match', description='Match a lecture against an existing deck without AI.')
-    p.add_argument('--deck', required=True, help='.apkg, .colpkg, .anki2 or .json/.jsonl note list')
+    deck = p.add_mutually_exclusive_group(required=True)
+    deck.add_argument('--deck', help='.apkg, .colpkg, .anki2 or .json/.jsonl note list')
+    deck.add_argument('--profile', nargs='?', const='', help="read this Anki profile's collection directly (no export); no name = the only profile or 'User 1'")
     p.add_argument('--deck-prefix', help='only notes in this deck or its subdecks')
     src = p.add_mutually_exclusive_group(required=True)
     src.add_argument('--pdf')
@@ -86,7 +103,7 @@ def main(argv=None):
         print(f"{s['chunks']} chunks: {s['covered']} covered, {s['related']} related, {s['gap']} gaps; "
               f"{s['cards_to_unsuspend']} suspended cards to unsuspend -> {out}")
         return 0
-    except (ValueError, OSError) as exc:
+    except (ValueError, OSError) as exc:  # FileNotFoundError (no Anki profile) is an OSError
         print(f'error: {exc}', file=sys.stderr)
         return 2
     finally:

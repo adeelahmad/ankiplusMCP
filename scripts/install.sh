@@ -45,7 +45,8 @@ npx -y "$REF" doctor || true
 cat <<DONE
 
 Done. Restart $HOST.
-Put lecture PDFs and your AnKing export (File > Export > .apkg, media unticked) in:
+Put lecture PDFs in:
   $LECTURES
+Your AnKing deck is read straight from Anki (no export needed).
 Then ask your assistant: "Index my AnKing deck, then match my lecture and show me what to unsuspend."
 DONE

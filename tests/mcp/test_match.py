@@ -360,3 +360,64 @@ def test_postgres_errors_carry_the_server_log(tmp_path, monkeypatch):
     with pytest.raises(psycopg.OperationalError) as info:
         store.save(None)
     assert 'signal 4' in '\n'.join(info.value.__notes__)
+
+
+def test_anki_base_per_platform(tmp_path):
+    from ankiplusmcp.match import profiles
+    assert profiles.anki_base({}, 'darwin', '/Users/s') == __import__('pathlib').Path('/Users/s/Library/Application Support/Anki2')
+    assert profiles.anki_base({'APPDATA': r'C:\Users\s\AppData\Roaming'}, 'win32', '/x').name == 'Anki2'
+    assert profiles.anki_base({}, 'linux', '/home/s') == __import__('pathlib').Path('/home/s/.local/share/Anki2')
+    assert profiles.anki_base({'ANKI_BASE': str(tmp_path)}, 'linux', '/home/s') == tmp_path
+
+
+def _anki_base(tmp_path, *names):
+    base = tmp_path / 'Anki2'
+    for name in names:
+        (base / name).mkdir(parents=True)
+        make_collection(base / name / 'collection.anki2')
+    (base / 'addons21').mkdir(parents=True, exist_ok=True)
+    return base
+
+
+def test_profiles_pick_the_collection(tmp_path):
+    from ankiplusmcp.match import profiles
+    base = _anki_base(tmp_path, 'User 1', 'Hamza')
+    assert [p['profile'] for p in profiles.list_profiles(base)] == ['Hamza', 'User 1']
+    assert profiles.collection_for(None, base).parent.name == 'User 1'
+    assert profiles.collection_for('Hamza', base).parent.name == 'Hamza'
+    with pytest.raises(FileNotFoundError):
+        profiles.collection_for('Nobody', base)
+
+
+def test_index_from_profile_without_export_then_incremental(tmp_path, monkeypatch):
+    from ankiplusmcp.match import index as index_mod
+    base = _anki_base(tmp_path, 'User 1')
+    monkeypatch.setenv('ANKI_BASE', str(base))
+    monkeypatch.setattr(index_mod, 'get_embedder', lambda mode='auto', model=None: FakeEmbedder())
+    s = Service(tmp_path / 'work', [tmp_path / 'lectures'])  # the Anki folder is not a source root
+    try:
+        assert s.list_anki_profiles()['profiles'][0]['profile'] == 'User 1'
+        w = s.store.create('lecture', text='# Plexus\n- Erb palsy injures the upper trunk C5-C6 of the brachial plexus\n')['id']
+        first = wait(s, w, s.index_deck(w, deck_prefix='AnKing', backend='file'))
+        assert first['notes'] == 5 and first['embedded'] == 5 and first['reused'] == 0
+        # an AnkiHub sync edits one note and adds one
+        db = sqlite3.connect(base / 'User 1' / 'collection.anki2')
+        db.execute("update notes set flds = 'Erb palsy injures the {{c1::upper trunk}} (C5 and C6)\x1fwaiter tip' where id = 102")
+        db.execute("insert into notes values (106, 9, '', 'Duchenne muscular dystrophy is X-linked\x1f')")
+        db.execute('insert into cards values (1007, 106, 1, -1)')
+        db.commit(); db.close()
+        second = wait(s, w, s.index_deck(w, deck_prefix='AnKing', backend='file'))
+        assert second['notes'] == 6 and second['embedded'] == 2 and second['reused'] == 4
+        assert s.match_source(w, 'anking')['summary']['covered'] == 1
+    finally:
+        s.close()
+
+
+def test_cli_reads_a_profile(tmp_path, monkeypatch, capsys):
+    from ankiplusmcp.__main__ import main
+    monkeypatch.setenv('ANKI_BASE', str(_anki_base(tmp_path, 'User 1')))
+    lecture = tmp_path / 'lecture.md'
+    lecture.write_text('# Pump\n- The sodium potassium ATPase pumps 3 sodium out and 2 potassium in\n')
+    code = main(['match', '--profile', '--deck-prefix', 'AnKing', '--text', str(lecture), '--out', str(tmp_path / 'out'),
+                 '--index-dir', str(tmp_path / 'idx'), '--embeddings', 'off'])
+    assert code == 0 and '1 covered' in capsys.readouterr().out
