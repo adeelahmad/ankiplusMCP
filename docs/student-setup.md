@@ -28,6 +28,9 @@ curl -LsSf https://raw.githubusercontent.com/adeelahmad/ankiplusMCP/main/scripts
 
 On Windows set `$env:ANKIPLUS_HOST` / `$env:ANKIPLUS_LECTURES` before running it.
 
+Already have an older AnkiPlus (for example from Hamza-Xoho/ankiplusMCP) in your AI app? The
+command replaces that entry and keeps a backup of the app's config next to it.
+
 ## 2. Export your AnKing deck once
 
 In Anki: **File → Export**, format **Anki Deck Package (.apkg)**, choose the AnKing deck, untick
@@ -49,4 +52,4 @@ Nothing changes in Anki until you approve the list. Sync Anki afterwards.
 
 ## If something is missing
 
-Run `npx -y github:adeelahmad/ankiplusMCP#v0.4.0 doctor`. Each missing item prints its fix.
+Run `npx -y github:adeelahmad/ankiplusMCP#release-v0.4.0 doctor`. Each missing item prints its fix.

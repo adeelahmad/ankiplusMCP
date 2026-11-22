@@ -47,7 +47,7 @@ test('missing uv prints the install command and exits 127', () => {
 
 test('default spec pins the tag', () => {
   const r = runCli([], { ANKIPLUSMCP_PY_SPEC: undefined });
-  assert.equal(r.calls[3], 'ankiplusmcp[all] @ git+https://github.com/adeelahmad/ankiplusMCP@v0.4.0');
+  assert.equal(r.calls[3], 'ankiplusmcp[all] @ git+https://github.com/adeelahmad/ankiplusMCP@release-v0.4.0');
 });
 
 test('doctor --json without uv reports it and exits 2', () => {
