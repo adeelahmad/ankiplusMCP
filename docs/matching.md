@@ -26,6 +26,10 @@ student's own cards, so a lecture is never re-carded from an older lecture's car
 `index_written_cards` with the draft ids and the new note ids. They are embedded and
 added to the index immediately.
 
+**It stays current by itself.** When the index was built from the Anki profile,
+`match_source` first checks whether the collection changed and, if so, updates the index
+(`index_synced` in the result). Pass `sync=false` to skip that.
+
 **Updates cost seconds.** Run `index_deck` again after an AnkiHub sync: notes whose text
 is unchanged keep their embeddings, and only new or edited notes are embedded again, and deleted notes drop
 out (the result reports `embedded` and `reused`). A full first index of the 33,000-note AnKing deck

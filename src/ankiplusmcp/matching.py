@@ -71,48 +71,76 @@ class Matching:
         folder = self._index_dir(name)
 
         def run(cancel, report):
-            report('reading deck')
-            try:
-                notes = match.load_deck(source, deck_prefix=deck_prefix, fields=fields)
-            except match.deck.DeckError as exc:
-                raise DomainError('DECK', str(exc)) from exc
-            if not notes:
-                raise DomainError('DECK', 'No notes found (check deck_prefix).')
-            if cancel(): raise DomainError('CANCELLED', 'Cancelled.')
-            try:
-                embedder = match.index.get_embedder(embeddings, model)
-            except ValueError as exc:
-                raise DomainError('DEPENDENCY', str(exc)) from exc
-            report(f'indexing {len(notes)} notes')
-            index = match.DeckIndex(notes, embedder=embedder,
-                                    meta={'name': name, 'source': source.name, 'deck_prefix': deck_prefix, 'fields': fields})
-            previous = None
-            if embedder is not None and (folder / 'meta.json').is_file():
-                try:
-                    old_meta = json.loads((folder / 'meta.json').read_text())
-                    if old_meta.get('embedding_model') == embedder.name:
-                        previous = match.DeckIndex.load(folder, embedder=embedder, store=self._index_store(name, old_meta.get('backend', 'file')))
-                except Exception:
-                    previous = None  # an unreadable or older-format index is simply rebuilt
-            counts = index.embed_all(progress=lambda done, total: report(f'embedding {done}/{total}'), previous=previous)
-            if cancel(): raise DomainError('CANCELLED', 'Cancelled.')
-            used, note = backend, None
-            try:
-                meta = index.save(folder, self._index_store(name, backend))
-            except Exception as exc:
-                # 'auto' must still give the student an index: the file store matches identically.
-                if requested != 'auto' or backend != 'postgres':
-                    raise
-                used, note = 'file', f'Embedded Postgres failed ({str(exc).splitlines()[0]}); saved as files instead.'
-                meta = index.save(folder, self._index_store(name, 'file'))
-            # The folder's meta.json is the registry entry for every backend.
-            folder.mkdir(parents=True, exist_ok=True)
-            (folder / 'meta.json').write_text(json.dumps(dict(meta, backend=used), indent=2, ensure_ascii=False) + '\n')
-            self.__dict__.get('_indexes', {}).pop(name, None)
-            return {'index': name, 'backend': used, **{k: meta[k] for k in ('notes', 'suspended_cards', 'embeddings')},
-                    'embedding_model': meta.get('embedding_model'), 'source': str(source), **counts,
-                    **({'warning': note} if note else {})}
+            return self._build_index(name, source, deck_prefix, fields, embeddings, model, requested, backend,
+                                     profile=bool(profile or not deck_path), cancel=cancel, report=report)
         return self.jobs.submit(workspace, 'index_deck', run)
+
+    def _build_index(self, name, source, deck_prefix, fields, embeddings, model, requested, backend,
+                     profile=False, cancel=lambda: False, report=lambda msg: None):
+        folder = self._index_dir(name)
+        report('reading deck')
+        try:
+            notes = match.load_deck(source, deck_prefix=deck_prefix, fields=fields)
+        except match.deck.DeckError as exc:
+            raise DomainError('DECK', str(exc)) from exc
+        if not notes:
+            raise DomainError('DECK', 'No notes found (check deck_prefix).')
+        if cancel(): raise DomainError('CANCELLED', 'Cancelled.')
+        try:
+            embedder = match.index.get_embedder(embeddings, model)
+        except ValueError as exc:
+            raise DomainError('DEPENDENCY', str(exc)) from exc
+        report(f'indexing {len(notes)} notes')
+        index = match.DeckIndex(notes, embedder=embedder,
+                                meta={'name': name, 'source': source.name, 'deck_prefix': deck_prefix, 'fields': fields})
+        previous = None
+        if embedder is not None and (folder / 'meta.json').is_file():
+            try:
+                old_meta = json.loads((folder / 'meta.json').read_text())
+                if old_meta.get('embedding_model') == embedder.name:
+                    previous = match.DeckIndex.load(folder, embedder=embedder, store=self._index_store(name, old_meta.get('backend', 'file')))
+            except Exception:
+                previous = None  # an unreadable or older-format index is simply rebuilt
+        counts = index.embed_all(progress=lambda done, total: report(f'embedding {done}/{total}'), previous=previous)
+        if cancel(): raise DomainError('CANCELLED', 'Cancelled.')
+        used, note = backend, None
+        try:
+            meta = index.save(folder, self._index_store(name, backend))
+        except Exception as exc:
+            # 'auto' must still give the student an index: the file store matches identically.
+            if requested != 'auto' or backend != 'postgres':
+                raise
+            used, note = 'file', f'Embedded Postgres failed ({str(exc).splitlines()[0]}); saved as files instead.'
+            meta = index.save(folder, self._index_store(name, 'file'))
+        # The folder's meta.json is the registry entry for every backend.
+        folder.mkdir(parents=True, exist_ok=True)
+        stat = Path(source).stat()
+        settings = {'source_path': str(source), 'profile': profile, 'deck_stamp': f'{stat.st_size}|{stat.st_mtime_ns}',
+                    'deck_prefix': deck_prefix, 'fields': fields, 'embeddings_mode': embeddings, 'model': model, 'requested_backend': requested}
+        (folder / 'meta.json').write_text(json.dumps(dict(meta, backend=used, **settings), indent=2, ensure_ascii=False) + '\n')
+        self.__dict__.get('_indexes', {}).pop(name, None)
+        return {'index': name, 'backend': used, **{k: meta[k] for k in ('notes', 'suspended_cards', 'embeddings')},
+                'embedding_model': meta.get('embedding_model'), 'source': str(source), **counts,
+                **({'warning': note} if note else {})}
+
+    def _sync_index(self, name):
+        """Indexes read from the student's own Anki profile follow the collection: when it has
+        changed since the last build, update the index first (only new or edited notes are
+        embedded). Returns what was re-indexed, or None."""
+        folder = self._index_dir(name)
+        meta_path = folder / 'meta.json'
+        if not meta_path.is_file():
+            return None
+        meta = json.loads(meta_path.read_text())
+        source = Path(meta.get('source_path') or '')
+        if not meta.get('profile') or not source.is_file():
+            return None
+        stat = source.stat()
+        if meta.get('deck_stamp') == f'{stat.st_size}|{stat.st_mtime_ns}':
+            return None
+        backend = meta.get('backend', 'file')
+        return self._build_index(name, source, meta.get('deck_prefix'), meta.get('fields'), meta.get('embeddings_mode', 'auto'),
+                                 meta.get('model'), meta.get('requested_backend', backend), backend, profile=True)
 
     def list_indexes(self):
         root = self.store.root / 'indexes'
@@ -175,7 +203,8 @@ class Matching:
         return match.chunks_from_text(path.read_text(encoding='utf-8', errors='replace')), 'text'
 
     def match_source(self, workspace, index='anking', highlights=None, covered=None, related=None,
-                     per_chunk=3, expand_concepts=True, unsuspend_concepts=False, pdf_highlights=False):
+                     per_chunk=3, expand_concepts=True, unsuspend_concepts=False, pdf_highlights=False, sync=True):
+        synced = self._sync_index(index) if sync else None
         deck = self._load_index(index)
         chunks, origin = self._chunks(workspace, highlights, pdf_highlights)
         if not chunks:
@@ -195,7 +224,7 @@ class Matching:
         self.store.write_json(workspace, 'latest-match.json', {'artifact': f'{base}/report.json'})
         return {'match_id': match_id, 'summary': report['summary'], 'chunk_origin': origin, 'embeddings': report['embeddings'],
                 'artifacts': {'report': f'{base}/report.json', 'unsuspend': f'{base}/unsuspend.json', 'prompt': f'{base}/prompt.md'},
-                'performed_anki_operations': 0,
+                'performed_anki_operations': 0, **({'index_synced': {k: synced[k] for k in ('notes', 'embedded', 'reused')}} if synced else {}),
                 'next': 'Read the prompt artifact to draft only the gaps. Call prepare_unsuspend to show the user the cards, unsuspend the approved CARD ids through Anki MCP, then record_unsuspend.'}
 
     # -- unsuspend: preview -> user approval -> Anki MCP -> log -------------
