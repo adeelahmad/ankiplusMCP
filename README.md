@@ -117,8 +117,9 @@ See [host setup and options](docs/setup.md#install-and-register).
    about an hour for all of AnKing on a laptop. Ask: "Index my AnKing deck."
 3. **Connect your AI app.** The desktop app's third step adds AnkiPlus to Claude Desktop and
    backs up the old settings file. Then **quit Claude Desktop completely** and reopen it.
-4. **Re-sync after an AnkiHub update.** Ask "update the index". Only new or changed notes are
-   re-embedded (by note id and a hash of the text). Cards you write are added straight away.
+4. **Re-sync is automatic.** Before each lecture match, an index built from an Anki profile
+   re-reads the collection and re-embeds only new or changed notes (by note id and a hash of
+   the text), so AnkiHub updates are picked up. Cards you write are added straight away.
 
 ## How a lecture goes
 
