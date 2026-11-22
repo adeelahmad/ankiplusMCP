@@ -205,10 +205,14 @@ class API:
     def match_source(self, workspace: Workspace, index: IndexName='anking',
                      highlights: Annotated[list[Highlight],Field(max_length=2000)] | None=None,
                      covered: Score | None=None, related: Score | None=None, per_chunk: Annotated[int,Field(ge=1,le=10)]=3,
-                     expand_concepts: bool=True, unsuspend_concepts: bool=False) -> dict:
-        """Match the workspace source (or user highlights) against a deck index without AI. Classifies each chunk as covered/related/gap (default thresholds calibrated per mode: BM25 0.35/0.2, with embeddings 0.55/0.4), writes report.json, an unsuspend.json of suspended CARD ids to show the user, and prompt.md listing only the gaps to draft. Performs zero Anki operations."""
+                     expand_concepts: bool=True, unsuspend_concepts: bool=False, pdf_highlights: bool=False) -> dict:
+        """Match the workspace source (or user highlights; pdf_highlights=true uses only what the student highlighted in the PDF) against a deck index without AI. Classifies each chunk as covered/related/gap (default thresholds calibrated per mode: BM25 0.35/0.2, with embeddings 0.55/0.4), writes report.json, an unsuspend.json of suspended CARD ids to show the user, and prompt.md listing only the gaps to draft. Performs zero Anki operations."""
         return self.s.match_source(workspace,index,[h.model_dump() for h in highlights] if highlights else None,
-                                   covered,related,per_chunk,expand_concepts,unsuspend_concepts)
+                                   covered,related,per_chunk,expand_concepts,unsuspend_concepts,pdf_highlights)
+
+    def read_highlights(self, workspace: Workspace) -> dict:
+        """Read highlights/underlines (and boxes over figures) the student made in the source PDF with any viewer: page, text, attached comment, colour, rectangle."""
+        return self.s.read_highlights(workspace)
 
     def check_source_support(self, workspace: Workspace, ids: Ids=None) -> dict:
         """Check that saved cards are supported by the source: best page per card and cloze answers not found in the source (fuzzy). Mechanical; flags cards to look at."""
@@ -243,7 +247,7 @@ async def resolve_roots(server, store):
 def create_server(service):
     server=FastMCP('ankiplusmcp', instructions='Mechanical helper toolkit. Choose tools according to the user request. The official Anki MCP is a separate host dependency for all collection reads/writes. Optional get_guidance explains examples; no mandatory pipeline.')
     server._mcp_server.version=importlib.metadata.version('ankiplusmcp')
-    read_only={'capabilities','get_guidance','list_workspaces','get_workspace','read_source','search_source','list_figures','get_figure','resolve_target','get_cards','check_cards','prepare_review','get_report','list_artifacts','read_artifact','get_image','get_job','list_indexes','check_source_support'}
+    read_only={'capabilities','get_guidance','list_workspaces','get_workspace','read_source','search_source','list_figures','get_figure','resolve_target','get_cards','check_cards','prepare_review','get_report','list_artifacts','read_artifact','get_image','get_job','list_indexes','check_source_support','read_highlights'}
     for name,method in inspect.getmembers(API(service),predicate=inspect.ismethod):
         if name.startswith('_'): continue
         def wrap(method):

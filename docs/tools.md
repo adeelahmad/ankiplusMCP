@@ -2,7 +2,7 @@
 
 [README](../README.md) · [Setup](setup.md) · [Developer architecture](developer-guide.md)
 
-These are the **37 MCP tools** registered by [server.py](../src/ankiplusmcp/server.py).
+These are the **38 MCP tools** registered by [server.py](../src/ankiplusmcp/server.py).
 Students normally ask their assistant for an outcome; the assistant makes these
 calls. Developers can use this reference to understand the same calls and follow
 them into the code. The tools do no model inference and no Anki collection I/O.
@@ -517,7 +517,7 @@ collection; the host must do that through Anki MCP.
 
 ## Matching existing decks (no AI)
 
-These four tools are the deterministic path from a lecture to existing cards: index
+These five tools are the deterministic path from a lecture to existing cards: index
 a deck once, then match each lecture against it. Setup and tuning: [matching.md](matching.md).
 
 ### index_deck
@@ -552,6 +552,14 @@ viewer; replaces the source), `covered`/`related` thresholds, `per_chunk`,
 gaps, for drafting).
 
 **Example:** `match_source {"workspace":"WORKSPACE","index":"anking"}`.
+
+### read_highlights
+
+**Use it to:** read what the student highlighted in the source PDF with any viewer (Preview,
+Acrobat, Zotero, Edge). **Returns:** `page`, `text`, `note` (an attached comment), `color` and
+`rect` per highlight, plus `kind: "region"` boxes drawn over figures. Pages with a broken text
+layer are OCR'd under each highlight. Pass `pdf_highlights=true` to `match_source` to match only
+these.
 
 ### check_source_support
 
