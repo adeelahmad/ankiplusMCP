@@ -7,10 +7,10 @@ from .index import tokenize
 class Thresholds:
     """``None`` picks the calibrated default for the index (with or without embeddings).
 
-    Calibrated on scripts/match_benchmark.py (synthetic AnKing-style deck, 54 labelled facts
-    from two real lectures): the highest threshold with no wrong unsuspensions.
-    BM25 only: covered 0.35 (precision 1.0, recall 0.89). With Nomic embeddings: covered
-    0.55 (precision 1.0, recall 0.89, recall@5 1.0). Re-check on a real AnKing export.
+    BM25 only: covered 0.5, calibrated on a real AnKing export (33,078 notes) against 126
+    hand-labelled chunks from two real lectures (precision 0.75 as a lower bound, recall 0.35;
+    see docs/matching.md). With Nomic embeddings: covered 0.55, from the synthetic benchmark
+    (scripts/match_benchmark.py); still to be re-checked on the real deck.
     """
     covered: float | None = None
     related: float | None = None
@@ -18,7 +18,7 @@ class Thresholds:
     concepts: int = 5           # concept neighbours listed per covered chunk
     max_group: int = 150        # topic tags larger than this are too broad to expand
 
-    DEFAULTS = {False: (0.35, 0.2), True: (0.55, 0.4)}
+    DEFAULTS = {False: (0.5, 0.35), True: (0.55, 0.4)}
 
     def resolve(self, embeddings):
         covered, related = self.DEFAULTS[bool(embeddings)]

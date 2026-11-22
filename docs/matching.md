@@ -49,14 +49,17 @@ match_source {"workspace":"W","index":"anking"}
 
 The lecture (or the user's PDF highlights, if given) is split into fact-sized chunks. Each chunk is:
 
-- **covered**: the best note's score ≥ `covered` (default 0.35 with BM25 only, 0.55 with
+- **covered**: the best note's score ≥ `covered` (default 0.5 with BM25 only, 0.55 with
   embeddings). Its suspended cards go into `unsuspend.json`.
-- **related**: score ≥ `related` (default 0.2 / 0.4). The prompt shows the existing card so the AI
+- **related**: score ≥ `related` (default 0.35 / 0.4). The prompt shows the existing card so the AI
   drafts only what is missing.
 - **gap**: no existing card. Listed in `prompt.md` for drafting.
 
-Score = the IDF-weighted share of the chunk's terms that a note contains, raised by embedding
-similarity when that is higher.
+Score = the geometric mean of two IDF-weighted shares: how much of the chunk the note contains,
+and how much of the note's first field (its fact, not the Extra) the chunk contains. Both are
+needed on a real deck, where long Extras contain most words of any short lecture line. A note
+that shares fewer than two words with the chunk scores half, and numbers count a quarter of a
+word. Embedding similarity raises the score when that is higher.
 
 **Concept mapping.** For covered and related chunks, notes sharing the most specific AnKing topic
 tag (for example `…::Upper_Limb::Brachial_Plexus`) are listed as concept neighbours, so a lecture
@@ -93,16 +96,29 @@ wording has little support on any page.
 
 ## Tuning the thresholds
 
-The defaults come from `scripts/match_benchmark.py`: a synthetic deck written in AnKing cloze style
-(72 notes, not AnKing content) and 54 facts paraphrased from two real lectures. Each default is
-the highest threshold with no wrong unsuspensions:
+**Real AnKing deck (2026-11-23).** The BM25 defaults come from a real AnKing export (AnKing Step
+and MCAT decks plus one anatomy deck, 33,078 notes) and two real lectures: 126 extracted chunks,
+labelled by hand against the deck (40 with an existing note, 86 true gaps such as timetables,
+objectives and facts AnKing lacks). Precision counts accepted notes that were labelled correct.
+The labels are incomplete, so it is a lower bound:
 
-| Mode | covered | precision | recall | recall@5 |
-|---|---|---|---|---|
-| BM25 only | 0.35 | 1.00 | 0.89 | 0.96 |
-| BM25 + Nomic embeddings | 0.55 | 1.00 | 0.89 | 1.00 |
+| BM25 only, covered | precision | recall |
+|---|---|---|
+| 0.35 (old default) with the old one-way score | 0.11 | 0.61 |
+| 0.45 | 0.59 | 0.45 |
+| **0.50 (default)** | 0.75 | 0.35 |
+| 0.55 | 0.92 | 0.25 |
 
-A real 30k-note deck has far more near-duplicates, so re-check on a real export. Label one lecture by hand
+Most remaining errors share words but not meaning (for example "the tongue deviates toward the
+lesion" against a card on the trachea deviating in atelectasis). Embeddings target those. The
+embedding defaults (0.55 / 0.4) still come from the synthetic benchmark below and are being
+re-checked on the real deck.
+
+**Synthetic benchmark.** `scripts/match_benchmark.py` uses a deck written in AnKing cloze style
+(72 notes, not AnKing content) and 54 facts paraphrased from two real lectures. At covered 0.5
+(BM25 only) it gives precision 1.00 and recall 0.61.
+
+To check another deck, label one lecture by hand
 (`[{"text": "<fact>", "note_ids": [<AnKing note ids>]}]`, empty list for facts with no card) and run:
 
 ```

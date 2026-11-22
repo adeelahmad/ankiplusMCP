@@ -3,9 +3,15 @@
 Scores returned per hit:
 - ``bm25``: raw Okapi BM25 (ranking only, not comparable across queries),
 - ``overlap``: IDF-weighted share of the query's terms that the note contains (0..1),
+- ``reverse``: IDF-weighted share of the note's first field (the fact itself, not the
+  Extra) that the query contains (0..1),
+- ``lexical``: geometric mean of ``overlap`` and ``reverse``. Both directions are needed on
+  a real deck: long AnKing Extras contain most words of any short lecture line,
 - ``cosine``: embedding similarity (0..1) when embeddings are available, else None,
-- ``score``: the value thresholds use: ``overlap``, raised to the mean of
-  ``overlap`` and ``cosine`` when embeddings exist and that is higher.
+- ``score``: the value thresholds use: ``lexical``, raised to the mean of
+  ``lexical`` and ``cosine`` when embeddings exist and that is higher.
+Numbers weigh a quarter of a word, so slide numbering and table cells don't match arithmetic cards,
+and ``lexical`` is halved unless the note's first field shares at least two words with the query.
 Candidates from both retrievers are merged by reciprocal rank fusion.
 """
 from collections import Counter
@@ -17,7 +23,7 @@ import re
 
 import numpy as np
 
-FORMAT = 1
+FORMAT = 2
 _WORD = re.compile(r'[a-z0-9]+')
 STOPWORDS = frozenset('''a an and are as at be been but by can could did do does for from had has have
 how if in into is it its may more most no not of on or such than that the their them then there these
@@ -85,6 +91,15 @@ class DeckIndex:
         n = max(len(self.notes), 1)
         self.avgdl = (sum(self.lengths) / n) or 1.0
         self.idf = {t: math.log(1 + (n - len(p) + .5) / (len(p) + .5)) for t, p in self.postings.items()}
+        self.unseen = math.log(1 + (n + .5) / .5)
+        self.fronts = []
+        for note in self.notes:
+            front = set(tokenize(note.get('front') or note['text']))
+            self.fronts.append((front, sum(self.weight(t) for t in front)))
+
+    def weight(self, term):
+        w = self.idf.get(term, self.unseen)
+        return w * 0.25 if term.isdigit() else w
 
     def _build_tags(self):
         self.by_tag = {}
@@ -108,9 +123,9 @@ class DeckIndex:
         terms = Counter(tokenize(text))
         if not terms:
             return []
-        # Terms the deck never uses still count: a fact about them is not covered.
-        unseen = math.log(1 + (len(self.notes) + .5) / .5)
-        q_idf = sum(self.idf.get(t, unseen) for t in terms)
+        # Terms the deck never uses still count (at maximum weight): a fact about them is not covered.
+        weights = {t: self.weight(t) for t in terms}
+        q_idf = sum(weights.values())
         bm25 = {}
         present = {}
         for term in terms:
@@ -120,8 +135,12 @@ class DeckIndex:
             for doc, tf in self.postings[term]:
                 norm = tf * (self.k1 + 1) / (tf + self.k1 * (1 - self.b + self.b * self.lengths[doc] / self.avgdl))
                 bm25[doc] = bm25.get(doc, 0.0) + idf * norm
-                present[doc] = present.get(doc, 0.0) + idf
+                present[doc] = present.get(doc, 0.0) + weights[term]
         lexical = sorted(bm25, key=bm25.get, reverse=True)[:pool]
+        # Also keep the notes that share the most query weight: BM25 favours short notes,
+        # and the coverage score below needs the long ones too.
+        taken = set(lexical)
+        lexical += [d for d in sorted(present, key=present.get, reverse=True)[:pool * 4] if d not in taken]
         cos = None
         dense = []
         if self.vectors is not None and self.embedder is not None and len(self.notes):
@@ -135,9 +154,15 @@ class DeckIndex:
         hits = []
         for doc in fused:
             overlap = present.get(doc, 0.0) / q_idf if q_idf else 0.0
+            front, mass = self.fronts[doc]
+            reverse = sum(self.weight(t) for t in front if t in terms) / mass if mass else 0.0
+            lex = math.sqrt(overlap * reverse)
+            if sum(1 for t in front if t in terms and not t.isdigit()) < 2:
+                lex /= 2  # one shared word (or only numbers) is a coincidence, not the same fact
             cosine = None if cos is None else max(0.0, float(cos[doc]))
-            score = overlap if cosine is None else max(overlap, (overlap + cosine) / 2)
+            score = lex if cosine is None else max(lex, (lex + cosine) / 2)
             hits.append({'doc': doc, 'score': round(score, 4), 'overlap': round(overlap, 4),
+                         'reverse': round(reverse, 4), 'lexical': round(lex, 4),
                          'cosine': None if cosine is None else round(cosine, 4),
                          'bm25': round(bm25.get(doc, 0.0), 4), 'rrf': fused[doc]})
         hits.sort(key=lambda h: (h['score'], h['rrf']), reverse=True)
@@ -174,7 +199,7 @@ class IndexStore:
 
 class FileIndexStore(IndexStore):
     """Default: a folder with notes.jsonl.gz, meta.json and optional embeddings.npy (float16)."""
-    KEYS = ('note_id', 'card_ids', 'suspended_card_ids', 'deck', 'tags', 'text')
+    KEYS = ('note_id', 'card_ids', 'suspended_card_ids', 'deck', 'tags', 'text', 'front')
 
     def __init__(self, folder):
         self.folder = Path(folder)
@@ -224,6 +249,7 @@ class FastEmbedder:
     layer-normed, cut to ``dim`` and re-normalised (smaller index, little recall loss).
     """
     DEFAULT = 'nomic-ai/nomic-embed-text-v1.5'
+    MAX_CHARS = 800
     PREFIXES = {'nomic': ('search_document: ', 'search_query: ')}
 
     def __init__(self, model=None, dim=256):
@@ -239,7 +265,10 @@ class FastEmbedder:
         self._model = TextEmbedding(self.model_name)
 
     def _encode(self, texts):
-        out = np.array(list(self._model.embed(list(texts))), dtype=np.float32)
+        # Long AnKing Extras pad a whole batch to the model's 8k context and exhaust RAM:
+        # embed the first ~200 tokens (the fact itself; Extras add little) in small batches.
+        texts = [t[:self.MAX_CHARS] for t in texts]
+        out = np.array(list(self._model.embed(texts, batch_size=16)), dtype=np.float32)
         if self.dim:
             out = (out - out.mean(axis=1, keepdims=True)) / (out.std(axis=1, keepdims=True) + 1e-5)
             out = out[:, :self.dim]
