@@ -12,9 +12,10 @@ on:
     branches: ["**"]
     paths: ["rust/**", "package.json", ".github/workflows/desktop-release.yml"]
 
+# Installers take a while; a newer push waits for the running build instead of cancelling it.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   UV_VERSION: "0.11.32"
@@ -25,9 +26,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: macos-latest, target: aarch64-apple-darwin, bundle: dmg, uv: uv-aarch64-apple-darwin.tar.gz, name: AnkiPlus-macOS-AppleSilicon }
-          - { os: macos-latest, target: x86_64-apple-darwin, bundle: dmg, uv: uv-x86_64-apple-darwin.tar.gz, name: AnkiPlus-macOS-Intel }
-          - { os: windows-latest, target: x86_64-pc-windows-msvc, bundle: nsis, uv: uv-x86_64-pc-windows-msvc.zip, name: AnkiPlus-Windows }
+          - { os: macos-latest, target: aarch64-apple-darwin, bundle: dmg, uv: uv-aarch64-apple-darwin.tar.gz, name: AnkiPlus-macOS-AppleSilicon, features: "embed,pdf" }
+          - { os: macos-latest, target: x86_64-apple-darwin, bundle: dmg, uv: uv-x86_64-apple-darwin.tar.gz, name: AnkiPlus-macOS-Intel, features: pdf }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, bundle: nsis, uv: uv-x86_64-pc-windows-msvc.zip, name: AnkiPlus-Windows, features: "embed,pdf" }
+    # ONNX Runtime has no prebuilt x86_64 macOS binaries, so the Intel app indexes with
+    # keyword search; the MCP server in Claude still uses embeddings there.
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -55,7 +58,7 @@ jobs:
           esac
           ls -l binaries
       - name: Build the installer
-        run: npx --yes @tauri-apps/cli@2 build --target ${{ matrix.target }} --bundles ${{ matrix.bundle }} --config tauri.release.conf.json --features embed,pdf
+        run: npx --yes @tauri-apps/cli@2 build --target ${{ matrix.target }} --bundles ${{ matrix.bundle }} --config tauri.release.conf.json --features ${{ matrix.features }}
       - name: Collect
         run: |
           mkdir -p ../../../dist-installer
