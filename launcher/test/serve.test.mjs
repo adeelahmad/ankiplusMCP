@@ -9,7 +9,7 @@ const MISSING_UV = `ankiplusmcp: uv was not found. Install it, then run this aga
   curl -LsSf https://astral.sh/uv/install.sh | sh
 or: brew install uv
 `;
-const PREFIX = ['tool', 'run', '--from', 'SPEC', 'ankiplusmcp'];
+const PREFIX = ['tool', 'run', '--python', '3.13', '--from', 'SPEC', 'ankiplusmcp'];
 
 test('serve passes flags through as single arguments', () => {
   const r = runCli(['--source-root', '/tmp/My Drive/Lectures', '--workspace-root', '/w']);
@@ -47,7 +47,7 @@ test('missing uv prints the install command and exits 127', () => {
 
 test('default spec pins the tag', () => {
   const r = runCli([], { ANKIPLUSMCP_PY_SPEC: undefined });
-  assert.equal(r.calls[3], 'ankiplusmcp[all] @ git+https://github.com/adeelahmad/ankiplusMCP@release-v0.5.0');
+  assert.equal(r.calls[5], 'ankiplusmcp[all] @ git+https://github.com/adeelahmad/ankiplusMCP@release-v0.5.1');
 });
 
 test('doctor --json without uv reports it and exits 2', () => {
@@ -71,8 +71,8 @@ test('setup hands its flags to the python setup', () => {
 });
 
 test('--version prints the launcher version first', () => {
-  const r = runCli(['--version'], { FAKE_UV_STDOUT: 'ankiplusmcp 0.5.0\n' });
-  assert.equal(r.stdout, 'ankiplusmcp-launcher 0.5.0\nankiplusmcp 0.5.0\n');
+  const r = runCli(['--version'], { FAKE_UV_STDOUT: 'ankiplusmcp 0.5.1\n' });
+  assert.equal(r.stdout, 'ankiplusmcp-launcher 0.5.1\nankiplusmcp 0.5.1\n');
 });
 
 test('findUv: explicit override is the only place looked', () => {
@@ -91,5 +91,5 @@ test('package has no runtime dependencies', () => {
   const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
   assert.equal(pkg.dependencies, undefined);
   assert.equal(pkg.bin.ankiplusmcp, 'launcher/cli.mjs');
-  assert.equal(pkg.version, '0.5.0');
+  assert.equal(pkg.version, '0.5.1');
 });
