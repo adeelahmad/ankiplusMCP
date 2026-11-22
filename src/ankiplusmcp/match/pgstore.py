@@ -19,13 +19,37 @@ _servers = {}
 _lock = threading.Lock()
 
 
+# The x86-64 pgvector in pixeltable-pgserver's wheels is built for AVX-512 CPUs: its
+# plain code paths (cosine distance, HNSW build, even the bit "Default" kernels) use
+# EVEX instructions, so the backend dies with SIGILL on CPUs without AVX-512, such as
+# AMD before Zen 4, Intel Core 12th-14th gen and most Intel Macs.
+AVX512_NEEDED = ('AVX512F', 'AVX512VL', 'AVX512BW', 'AVX512DQ', 'AVX512VPOPCNTDQ')
+
+
+def cpu_supported(machine=None, features=None):
+    """Whether this CPU can run the bundled pgvector."""
+    import platform
+    machine = (machine or platform.machine()).lower()
+    if machine not in ('x86_64', 'amd64', 'x64'):
+        return True   # arm64 wheels are built separately
+    if features is None:
+        try:
+            from numpy._core._multiarray_umath import __cpu_features__ as features
+        except ImportError:
+            try:
+                from numpy.core._multiarray_umath import __cpu_features__ as features
+            except ImportError:
+                return False
+    return all(features.get(name) for name in AVX512_NEEDED)
+
+
 def available():
     try:
         import pixeltable_pgserver  # noqa: F401
         import psycopg  # noqa: F401
-        return True
     except ImportError:
         return False
+    return cpu_supported()
 
 
 def server(data_dir):
