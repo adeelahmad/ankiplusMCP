@@ -407,9 +407,15 @@ def test_index_from_profile_without_export_then_incremental(tmp_path, monkeypatc
         db.execute("insert into notes values (106, 9, '', 'Duchenne muscular dystrophy is X-linked\x1f')")
         db.execute('insert into cards values (1007, 106, 1, -1)')
         db.commit(); db.close()
+        import os, time
+        os.utime(base / 'User 1' / 'collection.anki2', (time.time() + 5, time.time() + 5))
+        # the next lecture match syncs the index first
+        result = s.match_source(w, 'anking')
+        assert result['index_synced'] == {'notes': 6, 'embedded': 2, 'reused': 4}
+        assert result['summary']['covered'] == 1
+        assert 'index_synced' not in s.match_source(w, 'anking')  # unchanged collection: no work
         second = wait(s, w, s.index_deck(w, deck_prefix='AnKing', backend='file'))
-        assert second['notes'] == 6 and second['embedded'] == 2 and second['reused'] == 4
-        assert s.match_source(w, 'anking')['summary']['covered'] == 1
+        assert second['notes'] == 6 and second['embedded'] == 0 and second['reused'] == 6
     finally:
         s.close()
 
