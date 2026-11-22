@@ -2,7 +2,7 @@
 
 [README](../README.md) · [Setup](setup.md) · [Developer architecture](developer-guide.md)
 
-These are the **41 MCP tools** registered by [server.py](../src/ankiplusmcp/server.py).
+These are the **42 MCP tools** registered by [server.py](../src/ankiplusmcp/server.py).
 Students normally ask their assistant for an outcome; the assistant makes these
 calls. Developers can use this reference to understand the same calls and follow
 them into the code. The tools do no model inference and no Anki collection I/O.
@@ -517,7 +517,7 @@ collection; the host must do that through Anki MCP.
 
 ## Matching existing decks (no AI)
 
-These eight tools are the deterministic path from a lecture to existing cards: index
+These nine tools are the deterministic path from a lecture to existing cards: index
 a deck once, then match each lecture against it. Setup and tuning: [matching.md](matching.md).
 
 ### index_deck
@@ -538,6 +538,15 @@ re-running it after an AnkiHub sync re-embeds only new or changed notes.
 
 **Implementation:** [Matching.index_deck](../src/ankiplusmcp/matching.py). Reads a copy
 of the deck; never changes the collection.
+
+### index_written_cards
+
+**Use it to:** add cards the host just created through the Anki MCP to the deck index
+straight away, so the next lecture matches them and never drafts them again.
+**Inputs:** `workspace`, `written` (`[{draft_id, note_id, card_ids}]` as the Anki MCP
+reported them), optional `index`. **Returns:** `added`, `notes`, `embedded`, `reused`.
+Only these notes are embedded; the next `index_deck` sync replaces them with the
+collection's own copy. Performs zero Anki operations.
 
 ### list_anki_profiles
 

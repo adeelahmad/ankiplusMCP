@@ -263,6 +263,36 @@ class Matching:
         return {'recorded': len(row['card_ids']), 'status': status, 'log': f'match/{match_id}/unsuspend-log.jsonl',
                 'evidence_origin': 'caller_supplied', 'independently_verified': False}
 
+    def index_written_cards(self, workspace, written, index='anking'):
+        """Add cards the host just created in Anki to the index at once, so the next lecture
+        matches against them and never drafts them again. ``written``: [{draft_id, note_id,
+        card_ids}] as the Anki MCP reported them. Only these notes are embedded; the next
+        index_deck sync replaces them with the collection's own copy."""
+        folder = self._index_dir(index)
+        old = self._load_index(index)
+        drafts = {c['id']: c for c in self._cards(workspace)}
+        missing = [w['draft_id'] for w in written if w['draft_id'] not in drafts]
+        if missing:
+            raise DomainError('CARDS', f'Unknown draft ids: {", ".join(missing[:10])}.', 'Use the ids from get_cards.')
+        added = []
+        for w in written:
+            card = drafts[w['draft_id']]
+            values = list((card.get('fields') or {}).values())
+            text = '\n'.join(t for t in (match.clean_text(v) for v in values[:2]) if t)
+            if text:
+                added.append({'note_id': w['note_id'], 'card_ids': list(w.get('card_ids') or []), 'suspended_card_ids': [],
+                              'deck': card.get('deck', ''), 'tags': list(card.get('tags') or []), 'text': text,
+                              'front': match.clean_text(values[0]) if values else ''})
+        ids = {n['note_id'] for n in added}
+        notes = [n for n in old.notes if n['note_id'] not in ids] + added
+        fresh = match.DeckIndex(notes, embedder=old.embedder, meta=dict(old.meta))
+        counts = fresh.embed_all(previous=old) if old.embedder is not None and old.vectors is not None else {'embedded': 0, 'reused': 0}
+        meta = json.loads((folder / 'meta.json').read_text())
+        saved = fresh.save(folder, self._index_store(index, meta.get('backend', 'file')))
+        (folder / 'meta.json').write_text(json.dumps({**meta, **saved, 'backend': meta.get('backend', 'file')}, indent=2, ensure_ascii=False) + '\n')
+        self.__dict__.get('_indexes', {}).pop(index, None)
+        return {'index': index, 'added': len(added), 'notes': len(notes), **counts}
+
     def check_source_support(self, workspace, ids=None):
         from .match.quotes import check_support
         cards = self._select(workspace, ids)
