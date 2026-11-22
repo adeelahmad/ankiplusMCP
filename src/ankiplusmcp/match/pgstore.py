@@ -119,12 +119,13 @@ class PostgresIndexStore(IndexStore):
             vec = f', embedding vector({dim})' if dim else ''
             cur.execute(f'''create table {self.schema}.notes (doc integer primary key, note_id bigint not null,
                 card_ids bigint[] not null, suspended_card_ids bigint[] not null, deck text, tags text[],
-                text text not null, front text, tsv tsvector{vec})''')
+                text text not null, front text, card_answers jsonb, tsv tsvector{vec})''')
             cur.execute(f'create table {self.schema}.meta (key text primary key, value jsonb)')
-            columns = 'doc, note_id, card_ids, suspended_card_ids, deck, tags, text, front' + (', embedding' if dim else '')
+            columns = 'doc, note_id, card_ids, suspended_card_ids, deck, tags, text, front, card_answers' + (', embedding' if dim else '')
             with cur.copy(f'copy {self.schema}.notes ({columns}) from stdin') as copy:
                 for i, n in enumerate(index.notes):
-                    row = [i, n['note_id'], n['card_ids'], n['suspended_card_ids'], n.get('deck', ''), n.get('tags', []), n['text'], n.get('front')]
+                    row = [i, n['note_id'], n['card_ids'], n['suspended_card_ids'], n.get('deck', ''), n.get('tags', []), n['text'], n.get('front'),
+                           json.dumps({str(k): v for k, v in (n.get('card_answers') or {}).items()})]
                     if dim:
                         row.append('[' + ','.join(f'{x:.6g}' for x in index.vectors[i]) + ']')
                     copy.write_row(row)
@@ -134,7 +135,7 @@ class PostgresIndexStore(IndexStore):
                 cur.execute(f'create index on {self.schema}.notes using hnsw (embedding vector_cosine_ops)')
             meta = dict(index.meta, format=FORMAT, backend='postgres', notes=len(index.notes),
                         suspended_cards=sum(len(n['suspended_card_ids']) for n in index.notes),
-                        embeddings=dim is not None)
+                        embeddings=dim is not None, card_answers=True)
             if not dim:
                 meta.pop('embedding_model', None)
             cur.execute(f'insert into {self.schema}.meta values (%s, %s)', ('meta', json.dumps(meta)))
@@ -146,12 +147,13 @@ class PostgresIndexStore(IndexStore):
             meta = cur.fetchone()[0]
             if meta.get('format') != FORMAT:
                 raise ValueError('Index format changed; rebuild it with index_deck.')
+            answers = 'card_answers' if meta.get('card_answers') else 'null::jsonb'   # older indexes lack the column
             vec = ', embedding::text' if meta.get('embeddings') else ''
-            cur.execute(f'select note_id, card_ids, suspended_card_ids, deck, tags, text, front{vec} from {self.schema}.notes order by doc')
+            cur.execute(f'select note_id, card_ids, suspended_card_ids, deck, tags, text, front, {answers}{vec} from {self.schema}.notes order by doc')
             rows = cur.fetchall()
         notes = [{'note_id': r[0], 'card_ids': list(r[1]), 'suspended_card_ids': list(r[2]), 'deck': r[3] or '',
-                  'tags': list(r[4] or []), 'text': r[5], 'front': r[6]} for r in rows]
+                  'tags': list(r[4] or []), 'text': r[5], 'front': r[6], 'card_answers': r[7] or {}} for r in rows]
         index = cls(notes, embedder=embedder, meta=meta)
         if vec and embedder is not None and embedder.name == meta.get('embedding_model'):
-            index.vectors = np.array([json.loads(r[7]) for r in rows], dtype=np.float32)
+            index.vectors = np.array([json.loads(r[8]) for r in rows], dtype=np.float32)
         return index
