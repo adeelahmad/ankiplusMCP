@@ -7,6 +7,8 @@ from .store import DomainError
 from . import match
 
 MAX_DECK = 4 * 1024 ** 3
+# .apkg/.colpkg are zips; only the collection member is read, so media can make them huge.
+MAX_ARCHIVE = 64 * 1024 ** 3
 NAME = re.compile(r'^[A-Za-z0-9_-]{1,80}$')
 
 
@@ -25,8 +27,10 @@ class Matching:
         if not any(resolved.is_relative_to(r) for r in roots):
             raise DomainError('SOURCE', 'Deck file is outside configured readable roots.',
                               'Add its folder with --source-root, or export the deck into a source root.')
-        if not resolved.is_file() or resolved.stat().st_size > MAX_DECK:
-            raise DomainError('SOURCE', 'Deck file missing or larger than 4 GiB.')
+        limit = MAX_ARCHIVE if resolved.suffix.lower() in ('.apkg', '.colpkg') else MAX_DECK
+        if not resolved.is_file() or resolved.stat().st_size > limit:
+            raise DomainError('SOURCE', f'Deck file missing or larger than {limit // 1024 ** 3} GiB.',
+                              'Export the deck without media for a smaller file.')
         return resolved
 
     def _backend(self, backend):
