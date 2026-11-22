@@ -2,7 +2,7 @@
 
 [README](../README.md) · [Setup](setup.md) · [Developer architecture](developer-guide.md)
 
-These are the **33 MCP tools** registered by [server.py](../src/ankiplusmcp/server.py).
+These are the **37 MCP tools** registered by [server.py](../src/ankiplusmcp/server.py).
 Students normally ask their assistant for an outcome; the assistant makes these
 calls. Developers can use this reference to understand the same calls and follow
 them into the code. The tools do no model inference and no Anki collection I/O.
@@ -41,8 +41,10 @@ The [worked study workflow](study-workflow.md) shows reuse-first matching,
 explanatory backs, diagram choices, manual review and the separate Anki handoff.
 The important contracts when combining calls are:
 
-- Collection matching is performed by the host through its Anki MCP, not by
-  `resolve_target` or `check_cards`. Source objectives help the assistant decide
+- Collection matching can run without AI: `index_deck` reads a deck export once
+  and `match_source` matches a lecture against it. The host still performs the
+  actual unsuspension through its Anki MCP. `resolve_target` and `check_cards`
+  do not match collections. Source objectives help the assistant decide
   what existing cards cover and where new drafts are needed.
 - Keep existing-card preview snapshots separate from new-note drafts. The
   default `action="create"` on a snapshot does not mean it should be imported
@@ -512,6 +514,50 @@ a basic workspace report.
 `latest-plan.json` and optional receipts. Reported success counts count result
 records, not necessarily individual notes. Reports do not reconcile a live
 collection; the host must do that through Anki MCP.
+
+## Matching existing decks (no AI)
+
+These four tools are the deterministic path from a lecture to existing cards: index
+a deck once, then match each lecture against it. Setup and tuning: [matching.md](matching.md).
+
+### index_deck
+
+**Use it to:** index an existing deck such as AnKing so lectures can be matched against it.
+
+**Inputs:** `workspace` (hosts the job), `deck_path` (an `.apkg`, `.colpkg`, `.anki2`
+collection or `.json`/`.jsonl` note list under a source root), optional `name`
+(default `anking`), `deck_prefix`, `fields`, `embeddings` (`auto`/`off`/`required`),
+`model`, `backend` (`auto`/`postgres`/`file`). **Returns:** a job; its result gives
+note and suspended-card counts and whether embeddings were built.
+
+**Example:** `index_deck {"workspace":"WORKSPACE","deck_path":"/abs/AnKing.apkg","deck_prefix":"AnKing"}`.
+
+**Implementation:** [Matching.index_deck](../src/ankiplusmcp/matching.py). Reads a copy
+of the deck; never changes the collection.
+
+### list_indexes
+
+**Use it to:** see which deck indexes exist. **Inputs:** none.
+
+### match_source
+
+**Use it to:** find which lecture facts existing cards already cover, which suspended
+cards to unsuspend, and which facts still need new cards.
+
+**Inputs:** `workspace`, `index`, optional `highlights` (`[{page,text,note}]` from a PDF
+viewer; replaces the source), `covered`/`related` thresholds, `per_chunk`,
+`expand_concepts`, `unsuspend_concepts`. **Returns:** counts and three artifacts:
+`report.json` (every chunk with matches and concept neighbours), `unsuspend.json`
+(CARD ids to show the user, then unsuspend through Anki MCP) and `prompt.md` (only the
+gaps, for drafting).
+
+**Example:** `match_source {"workspace":"WORKSPACE","index":"anking"}`.
+
+### check_source_support
+
+**Use it to:** check that saved cards come from the source: each card's best page and
+any cloze answers that do not appear in the source. Flags cards to look at; it does
+not prove a card correct.
 
 ## Artifacts, jobs and diagnostics
 

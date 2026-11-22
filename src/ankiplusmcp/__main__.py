@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 from . import settings
 
-COMMANDS = ('serve', 'doctor', 'setup')
+COMMANDS = ('serve', 'doctor', 'setup', 'match')
 
 
 def serve(argv):
@@ -42,6 +42,9 @@ def main(argv=None):
         return 0
     command=argv.pop(0) if argv and argv[0] in COMMANDS else 'serve'
     if command=='serve': return serve(argv)
+    if command=='match':
+        from .match.cli import main as match_main
+        return match_main(argv)
     from . import doctor
     return doctor.doctor_main(argv) if command=='doctor' else doctor.setup_main(argv)
 

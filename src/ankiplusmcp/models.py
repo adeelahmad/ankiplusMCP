@@ -64,3 +64,8 @@ class ExternalResult(Model):
     card_ids: list[Positive] = Field(default_factory=list,max_length=500)
     batch_artifact: str | None = Field(default=None,max_length=200)
     detail: str = Field(default='',max_length=4000)
+
+class Highlight(Model):
+    page: int = Field(default=0,ge=0,le=5000)
+    text: str = Field(min_length=1,max_length=5000)
+    note: str = Field(default='',max_length=500)

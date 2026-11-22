@@ -11,7 +11,8 @@ current behaviour.
 | --- | --- |
 | [Installation and configuration](setup.md) | Register a host, choose profiles/browsers, configure folders or troubleshoot. |
 | [Worked study workflow](study-workflow.md) | Reuse existing cards, draft gaps, inspect previews and approve an Anki handoff. |
-| [All 33 tools](tools.md) | Look up inputs, outputs, examples, limits and implementation paths. |
+| [All 37 tools](tools.md) | Look up inputs, outputs, examples, limits and implementation paths. |
+| [Matching existing decks](matching.md) | Find which lecture facts AnKing already covers, unsuspend them and draft only the gaps, without AI. |
 
 ## Understanding and contributing
 
