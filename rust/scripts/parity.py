@@ -101,6 +101,8 @@ def lectures(rng):
                     line = line + ' \u2022 ' + sentence(rng, 5)   # inline bullet
                 elif roll < .4:
                     line = '\u00a2 ' + line + ' 3'               # OCR bullet glyph + list number
+                if rng.random() < .05:   # bibliography line, dropped by both
+                    line = 'Moore KL, Clinically Oriented Anatomy, 8th edn, Wolters Kluwer 2018'
                 parts.append(bullet + line[:1].upper() + line[1:])
             parts.append(str(page))
         out[f'L{n:03d}.md'] = '\n'.join(parts) + '\n'
@@ -138,7 +140,7 @@ def main():
         for name, text in lectures(rng).items():
             src = tmp / name
             src.write_text(text)
-            for extra in ([], ['--covered', '0.5', '--related', '0.25']):
+            for extra in ([], ['--covered', '0.5', '--related', '0.25'], ['--covered', '0.6']):
                 py_out, rs_out = tmp / 'py' / name, tmp / 'rs' / name
                 base = ['--deck', str(deck), '--deck-prefix', 'AnKing', '--embeddings', 'off', '--text', str(src)] + extra
                 assert pycli.main(base + ['--out', str(py_out), '--index-dir', str(tmp / 'py-idx')]) == 0
@@ -172,6 +174,15 @@ def main():
             pycli.main(ev)
         rs = subprocess.run([args.bin, 'match', *ev], capture_output=True, text=True, check=True).stdout
         failures += [f'evaluate {e}' for e in close(json.loads(buf.getvalue()), json.loads(rs))[:5]]
+        # Calibration benchmark from tests/fixtures/match, default (calibrated) thresholds.
+        fx = ROOT / 'tests' / 'fixtures' / 'match'
+        ev = ['--deck', str(fx / 'synthetic_anking.json'), '--embeddings', 'off', '--evaluate', str(fx / 'labels.json'),
+              '--index-dir', str(tmp / 'bench')]
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            pycli.main(ev)
+        rs = subprocess.run([args.bin, 'match', *ev], capture_output=True, text=True, check=True).stdout
+        failures += [f'benchmark evaluate {e}' for e in close(json.loads(buf.getvalue()), json.loads(rs))[:5]]
         # Quote check.
         chunks = chunks_from_text(src.read_text())
         cards = [{'id': i, 'fields': {'Text': ' '.join(c['text'].split()[:6]) + ' {{c1::' + w + '}}'},
@@ -185,7 +196,7 @@ def main():
         print('PARITY FAILED')
         print('\n'.join(failures[:40]))
         return 1
-    print(f'parity ok: 8 lecture runs, cross-loaded cache, evaluate and quote check on {args.notes} notes')
+    print(f'parity ok: 12 lecture runs, calibration benchmark, cross-loaded cache, evaluate and quote check on {args.notes} notes')
     return 0
 
 

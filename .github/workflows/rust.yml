@@ -3,9 +3,9 @@ name: Rust
 on:
   push:
     branches: ["**"]
-    paths: ["rust/**", "src/ankiplusmcp/match/**", ".github/workflows/rust.yml"]
+    paths: ["rust/**", "src/ankiplusmcp/match/**", "tests/fixtures/match/**", ".github/workflows/rust.yml"]
   pull_request:
-    paths: ["rust/**", "src/ankiplusmcp/match/**", ".github/workflows/rust.yml"]
+    paths: ["rust/**", "src/ankiplusmcp/match/**", "tests/fixtures/match/**", ".github/workflows/rust.yml"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

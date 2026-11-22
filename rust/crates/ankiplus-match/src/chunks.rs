@@ -18,6 +18,9 @@ static BULLET: LazyLock<fancy_regex::Regex> = LazyLock::new(|| {
 static INLINE_BULLET: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s+[•¢▪●]\s+").unwrap());
 static CAPTION: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)^(?:Figure|Fig\.|Image|Source)\s*\d*\s*[:.]").unwrap());
+static CITATION: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)\b(?:ed\.|edn|editors?|Elsevier|Wolters|Kluwer|Springer|Saunders|McGraw|Thieme|Lippincott)\b.*\b(?:19|20)\d{2}\b|\b(?:19|20)\d{2}\b.*\b(?:Elsevier|Wolters|Kluwer|Springer|Saunders|Lippincott)\b").unwrap()
+});
 static LIST_NUMBER: LazyLock<fancy_regex::Regex> =
     LazyLock::new(|| fancy_regex::Regex::new(r"(?<=[A-Za-z:)])\s+\d{1,2}$").unwrap());
 static CONTINUES: LazyLock<Regex> = LazyLock::new(|| {
@@ -65,7 +68,7 @@ pub(crate) fn lines(text: &str) -> Vec<String> {
             let bulleted = BULLET.is_match(part).unwrap_or(false);
             let stripped = BULLET.replace(part, "");
             let line = LIST_NUMBER.replace(stripped.trim(), "").to_string();
-            if !TWO_LETTERS.is_match(&line) || CAPTION.is_match(&line) {
+            if !TWO_LETTERS.is_match(&line) || CAPTION.is_match(&line) || CITATION.is_match(&line) {
                 continue;
             }
             if let Some(cur) = current.as_mut() {

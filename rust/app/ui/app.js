@@ -39,8 +39,8 @@ $('match').addEventListener('click', () => busy($('match'), async () => {
     const { report, prompt } = await invoke('match_source', { args: {
       source: pdf ? { pdfPath: pdf } : { text: $('text').value },
       sourceName: pdf ? pdf.split(/[\\/]/).pop() : 'pasted text',
-      covered: parseFloat($('covered').value),
-      related: parseFloat($('related').value),
+      covered: $('covered').value ? parseFloat($('covered').value) : null,
+      related: $('related').value ? parseFloat($('related').value) : null,
       unsuspendConcepts: $('concepts').checked,
     } });
     const s = report.summary;

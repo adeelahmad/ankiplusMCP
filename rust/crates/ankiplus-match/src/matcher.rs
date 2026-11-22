@@ -7,11 +7,13 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-/// Uncalibrated defaults; tune them with `evaluate` on a hand-labelled lecture.
+/// `None` picks the calibrated default for the index (with or without embeddings),
+/// as in the Python `Thresholds.resolve`: BM25 only 0.35 / 0.2, with Nomic
+/// embeddings 0.55 / 0.4 (calibrated with `scripts/match_benchmark.py`).
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct Thresholds {
-    pub covered: f64,
-    pub related: f64,
+    pub covered: Option<f64>,
+    pub related: Option<f64>,
     /// Existing notes accepted per covered chunk.
     pub per_chunk: usize,
     /// Concept neighbours listed per covered chunk.
@@ -22,7 +24,22 @@ pub struct Thresholds {
 
 impl Default for Thresholds {
     fn default() -> Self {
-        Self { covered: 0.6, related: 0.35, per_chunk: 3, concepts: 5, max_group: 150 }
+        Self { covered: None, related: None, per_chunk: 3, concepts: 5, max_group: 150 }
+    }
+}
+
+impl Thresholds {
+    pub const BM25: (f64, f64) = (0.35, 0.2);
+    pub const EMBEDDINGS: (f64, f64) = (0.55, 0.4);
+
+    /// Fill unset thresholds with the calibrated defaults.
+    pub fn resolve(&self, embeddings: bool) -> Thresholds {
+        let (covered, related) = if embeddings { Self::EMBEDDINGS } else { Self::BM25 };
+        Thresholds { covered: Some(self.covered.unwrap_or(covered)), related: Some(self.related.unwrap_or(related)), ..*self }
+    }
+
+    pub fn covered_or_default(&self, embeddings: bool) -> f64 {
+        self.resolve(embeddings).covered.unwrap()
     }
 }
 
@@ -126,6 +143,9 @@ pub fn match_chunks(
     t: &Thresholds,
     opts: &MatchOptions,
 ) -> Result<Report, crate::Error> {
+    let resolved = t.resolve(index.has_embeddings());
+    let t = &resolved;
+    let (covered, related) = (t.covered.unwrap(), t.related.unwrap());
     let mut rows = Vec::new();
     let mut unsuspend: IndexMap<i64, UnsuspendNote> = IndexMap::new();
     let mut claim = |s: &NoteSummary, chunk_id: &str, reason: &str| {
@@ -150,27 +170,27 @@ pub fn match_chunks(
     for chunk in chunks {
         let hits = index.search(&chunk.text, opts.k, 50)?;
         let best = hits.first().map_or(0.0, |h| h.score);
-        let status = if best >= t.covered {
+        let status = if best >= covered {
             "covered"
-        } else if best >= t.related {
+        } else if best >= related {
             "related"
         } else {
             "gap"
         };
         let matches: Vec<NoteSummary> = hits
             .iter()
-            .filter(|h| h.score >= t.related)
+            .filter(|h| h.score >= related)
             .map(|h| summary(index, h.doc, Some(h)))
             .take(opts.k.max(t.per_chunk))
             .collect();
         let accepted: Vec<&NoteSummary> =
-            matches.iter().filter(|m| m.score.unwrap_or(0.0) >= t.covered).take(t.per_chunk).collect();
+            matches.iter().filter(|m| m.score.unwrap_or(0.0) >= covered).take(t.per_chunk).collect();
         let mut concepts: Vec<NoteSummary> = Vec::new();
         if opts.expand_concepts && status != "gap" {
             let mut seen: HashSet<i64> = matches.iter().map(|m| m.note_id).collect();
             let terms: HashSet<String> = tokenize(&chunk.text).into_iter().collect();
             'outer: for hit in hits.iter().take(t.per_chunk) {
-                if hit.score < t.related {
+                if hit.score < related {
                     break;
                 }
                 let (tag, docs) = index.neighbours(hit.doc, t.max_group);

@@ -115,12 +115,7 @@ fn match_source(state: tauri::State<AppState>, args: MatchArgs) -> Result<MatchR
     let guard = state.index.lock().map_err(|e| e.to_string())?;
     let index = guard.as_ref().ok_or("Index a deck first.")?;
     let chunks = chunks(&args.source)?;
-    let defaults = Thresholds::default();
-    let t = Thresholds {
-        covered: args.covered.unwrap_or(defaults.covered),
-        related: args.related.unwrap_or(defaults.related),
-        ..defaults
-    };
+    let t = Thresholds { covered: args.covered, related: args.related, ..Thresholds::default() };
     let opts = MatchOptions { unsuspend_concepts: args.unsuspend_concepts, ..MatchOptions::default() };
     let report = match_chunks(index, &chunks, &t, &opts).map_err(|e| e.to_string())?;
     let prompt = build_prompt(&report, args.source_name.as_deref().unwrap_or("lecture"), 24000);

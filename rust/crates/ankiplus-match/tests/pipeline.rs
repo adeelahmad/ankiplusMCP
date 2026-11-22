@@ -126,14 +126,15 @@ fn match_unsuspend_prompt() {
         "# Thoracic outlet\n- Thoracic outlet syndrome compresses the lower trunk of the brachial plexus\n\
          - Glomerular filtration rate depends on afferent arteriole tone\n",
     );
-    let report = match_chunks(&index, &chunks, &Thresholds::default(), &MatchOptions::default()).unwrap();
+    let strict = Thresholds { covered: Some(0.6), related: Some(0.35), ..Default::default() };
+    let report = match_chunks(&index, &chunks, &strict, &MatchOptions::default()).unwrap();
     let status: Vec<(&str, &str)> =
         report.chunks.iter().map(|r| (r.text.split(' ').next().unwrap(), r.status.as_str())).collect();
     assert_eq!(status, vec![("Thoracic", "covered"), ("Glomerular", "gap")]);
     assert_eq!(report.unsuspend.card_ids, vec![1001]);
     assert!(report.chunks[0].concepts.iter().any(|c| c.note_id == 102));
     assert_eq!(report.unsuspend.performed_anki_operations, 0);
-    let with = match_chunks(&index, &chunks, &Thresholds::default(), &MatchOptions { unsuspend_concepts: true, ..Default::default() }).unwrap();
+    let with = match_chunks(&index, &chunks, &strict, &MatchOptions { unsuspend_concepts: true, ..Default::default() }).unwrap();
     assert_eq!(with.unsuspend.card_ids, vec![1001, 1002]); // 103 has no suspended card
     let prompt = build_prompt(&report, "L025.pdf", 24000);
     let gaps = prompt.split("## Gaps").nth(1).unwrap().split("##").next().unwrap();
@@ -186,4 +187,21 @@ fn cache_key_matches_python_format() {
     let deck = make_collection(&tmp.path().join("c.anki2"));
     let key = pipeline::cache_key(&deck, None, pipeline::EmbeddingMode::Off).unwrap();
     assert!(key.starts_with('d') && key.len() == 17);
+}
+
+#[test]
+fn threshold_defaults_follow_the_index_mode() {
+    let t = Thresholds::default();
+    assert_eq!((t.resolve(false).covered, t.resolve(false).related), (Some(0.35), Some(0.2)));
+    assert_eq!((t.resolve(true).covered, t.resolve(true).related), (Some(0.55), Some(0.4)));
+    assert_eq!(Thresholds { covered: Some(0.7), ..Default::default() }.resolve(true).covered, Some(0.7));
+}
+
+#[test]
+fn synthetic_benchmark_recall() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../tests/fixtures/match");
+    let notes = load_deck(&root.join("synthetic_anking.json"), &LoadOptions::default()).unwrap();
+    let index = DeckIndex::new(notes, None, Default::default());
+    let labels: Vec<Label> = serde_json::from_str(&std::fs::read_to_string(root.join("labels.json")).unwrap()).unwrap();
+    assert!(evaluate(&index, &labels, 5, None).unwrap().recall_at_k.unwrap() >= 0.9);
 }

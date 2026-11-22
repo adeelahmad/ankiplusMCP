@@ -84,10 +84,12 @@ struct MatchArgs {
     backend: BackendArg,
     #[arg(long, value_enum, default_value = "auto")]
     embeddings: EmbedArg,
-    #[arg(long, default_value_t = Thresholds::default().covered)]
-    covered: f64,
-    #[arg(long, default_value_t = Thresholds::default().related)]
-    related: f64,
+    /// Default: 0.35 BM25 only, 0.55 with embeddings
+    #[arg(long)]
+    covered: Option<f64>,
+    /// Default: 0.2 BM25 only, 0.4 with embeddings
+    #[arg(long)]
+    related: Option<f64>,
     /// Also unsuspend concept neighbours of covered chunks
     #[arg(long)]
     unsuspend_concepts: bool,

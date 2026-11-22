@@ -33,7 +33,9 @@ pub struct Evaluation {
     pub misses: Vec<Miss>,
 }
 
-pub fn evaluate(index: &DeckIndex, labels: &[Label], k: usize, covered: f64) -> Result<Evaluation, crate::Error> {
+/// `covered: None` uses the calibrated default for the index.
+pub fn evaluate(index: &DeckIndex, labels: &[Label], k: usize, covered: Option<f64>) -> Result<Evaluation, crate::Error> {
+    let covered = crate::Thresholds { covered, ..Default::default() }.covered_or_default(index.has_embeddings());
     let (mut found, mut expected, mut true_gaps, mut flagged_gaps, mut false_gaps) = (0, 0, 0, 0, 0);
     let mut misses = Vec::new();
     for label in labels {
