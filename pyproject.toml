@@ -17,6 +17,8 @@ dependencies = ["mcp~=1.30", "pydantic~=2.14", "PyMuPDF~=2.1", "pillow~=13.0", "
 # The extra is kept so `ankiplusmcp[ocr]` stays a valid install target.
 ocr = []
 render = ["playwright~=1.64"]
+# Deck matching: local ONNX embeddings, embedded Postgres + pgvector, newer .apkg format.
+match = ["fastembed~=0.9", "pixeltable-pgserver~=0.7", "psycopg[binary]~=3.3", "zstandard>=0.23"]
 all = ["ankiplusmcp[ocr,render]"]
 dev = ["ankiplusmcp[all]", "pytest>=8", "build"]
 

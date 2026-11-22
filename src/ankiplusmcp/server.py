@@ -12,7 +12,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import CallToolResult, TextContent, ImageContent, ToolAnnotations
 from pydantic import Field, ValidationError
 from cards.common.errors import CardsError
-from .models import Card, Region, Finding, ExternalResult
+from .models import Card, Region, Finding, ExternalResult, Highlight
 from .store import DomainError
 from .service import Service
 from . import settings, doctor
@@ -21,6 +21,8 @@ Workspace = Annotated[str, Field(pattern=r'^[A-Za-z0-9_-]{1,80}$')]
 Offset = Annotated[int, Field(ge=0)]
 Limit = Annotated[int, Field(ge=1,le=100)]
 Revision = Annotated[int, Field(ge=0)]
+IndexName = Annotated[str, Field(pattern=r'^[A-Za-z0-9_-]{1,80}$')]
+Score = Annotated[float, Field(ge=0,le=1)]
 Ids = list[Annotated[str,Field(pattern=r'^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$')]] | None
 
 class API:
@@ -189,6 +191,29 @@ class API:
         data=self.s.image_bytes(workspace,artifact)
         return CallToolResult(content=[ImageContent(type='image',mimeType='image/png',data=base64.b64encode(data).decode())])
 
+    def index_deck(self, workspace: Workspace, deck_path: str, name: IndexName='anking', deck_prefix: str | None=None,
+                   fields: list[Annotated[str,Field(min_length=1,max_length=100)]] | None=None,
+                   embeddings: Literal['auto','off','required']='auto', model: str | None=None,
+                   backend: Literal['auto','postgres','file']='auto') -> dict:
+        """Index an existing deck (e.g. AnKing) from an .apkg/.colpkg/.anki2 file or a JSON note list under a source root, for matching without AI. BM25 plus optional local ONNX embeddings; embedded Postgres when installed. Reads a copy; never changes the collection. Returns a job hosted by workspace."""
+        return self.s.index_deck(workspace,deck_path,name,deck_prefix,fields,embeddings,model,backend)
+
+    def list_indexes(self) -> dict:
+        """List deck indexes built by index_deck, with note and suspended-card counts."""
+        return self.s.list_indexes()
+
+    def match_source(self, workspace: Workspace, index: IndexName='anking',
+                     highlights: Annotated[list[Highlight],Field(max_length=2000)] | None=None,
+                     covered: Score=.6, related: Score=.35, per_chunk: Annotated[int,Field(ge=1,le=10)]=3,
+                     expand_concepts: bool=True, unsuspend_concepts: bool=False) -> dict:
+        """Match the workspace source (or user highlights) against a deck index without AI. Classifies each chunk as covered/related/gap, writes report.json, an unsuspend.json of suspended CARD ids to show the user, and prompt.md listing only the gaps to draft. Performs zero Anki operations."""
+        return self.s.match_source(workspace,index,[h.model_dump() for h in highlights] if highlights else None,
+                                   covered,related,per_chunk,expand_concepts,unsuspend_concepts)
+
+    def check_source_support(self, workspace: Workspace, ids: Ids=None) -> dict:
+        """Check that saved cards are supported by the source: best page per card and cloze answers not found in the source (fuzzy). Mechanical; flags cards to look at."""
+        return self.s.check_source_support(workspace,ids)
+
     def get_job(self, workspace: Workspace, job_id: Workspace) -> dict:
         """Read persistent queued/running/completed/failed/cancelled/interrupted job state and result artifact references."""
         return self.s.jobs.get(workspace,job_id)
@@ -218,7 +243,7 @@ async def resolve_roots(server, store):
 def create_server(service):
     server=FastMCP('ankiplusmcp', instructions='Mechanical helper toolkit. Choose tools according to the user request. The official Anki MCP is a separate host dependency for all collection reads/writes. Optional get_guidance explains examples; no mandatory pipeline.')
     server._mcp_server.version=importlib.metadata.version('ankiplusmcp')
-    read_only={'capabilities','get_guidance','list_workspaces','get_workspace','read_source','search_source','list_figures','get_figure','resolve_target','get_cards','check_cards','prepare_review','get_report','list_artifacts','read_artifact','get_image','get_job'}
+    read_only={'capabilities','get_guidance','list_workspaces','get_workspace','read_source','search_source','list_figures','get_figure','resolve_target','get_cards','check_cards','prepare_review','get_report','list_artifacts','read_artifact','get_image','get_job','list_indexes','check_source_support'}
     for name,method in inspect.getmembers(API(service),predicate=inspect.ismethod):
         if name.startswith('_'): continue
         def wrap(method):

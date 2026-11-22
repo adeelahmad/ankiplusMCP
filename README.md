@@ -12,7 +12,7 @@ MCP (Model Context Protocol) is how an AI app connects to tools. AnkiPlus is an
 MCP server running locally on your computer. It has no chat interface of its own.
 Use it through a compatible host such as Claude Code, Claude Desktop or Codex.
 
-[Quick start](#quick-start) · [Worked lecture workflow](docs/study-workflow.md) · [All 33 tools](docs/tools.md) · [Setup guide](docs/setup.md) · [Developer guide](docs/developer-guide.md)
+[Quick start](#quick-start) · [Worked lecture workflow](docs/study-workflow.md) · [All 37 tools](docs/tools.md) · [Matching existing decks](docs/matching.md) · [Setup guide](docs/setup.md) · [Developer guide](docs/developer-guide.md)
 
 ## What can it help you do?
 

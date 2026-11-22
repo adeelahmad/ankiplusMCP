@@ -1,4 +1,5 @@
 """Composition root; no model calls and no Anki client."""
+import sys
 from .store import Store
 from .jobs import Jobs
 from .sources import Sources
@@ -7,9 +8,10 @@ from .artifacts import Artifacts
 from .cards import Cards
 from .review import Review
 from .payloads import Payloads
+from .matching import Matching
 from .settings import PROFILES
 
-class Service(Sources, Artifacts, Cards, Review, Payloads):
+class Service(Sources, Artifacts, Cards, Review, Payloads, Matching):
     def __init__(self, root, source_roots, profile=None, browser='auto'):
         self.store = Store(root, source_roots)
         self.profile = profile or PROFILES['default']
@@ -18,3 +20,6 @@ class Service(Sources, Artifacts, Cards, Review, Payloads):
 
     def close(self):
         self.jobs.close()
+        if 'pixeltable_pgserver' in sys.modules:
+            from .match import pgstore
+            pgstore.shutdown()

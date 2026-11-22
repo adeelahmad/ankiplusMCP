@@ -76,7 +76,7 @@ through FastMCP. Pydantic models/annotations define tool input schemas. The wrap
 `Cards`, `Review` and `Payloads` mixins around one `Store`, `Jobs` manager, profile
 and browser choice. These are groups of methods sharing local state, not remote
 services. Follow the implementation links in the [tool reference](tools.md) for
-the call path of each of the 33 tools.
+the call path of each of the 37 tools.
 
 MCP annotations are host hints, not filesystem guarantees. For example,
 `prepare_review` only builds a bundle, while `prepare_write` writes artifacts
