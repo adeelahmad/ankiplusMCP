@@ -343,6 +343,7 @@ pub fn self_test(deck: Option<&std::path::Path>, out: Option<&std::path::Path>) 
     report.insert("uv".into(), serde_json::json!(uv_version.map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())));
     ok &= report["uv"].is_string();
     report.insert("server_spec".into(), serde_json::json!(claude::py_spec()));
+    report.insert("python".into(), serde_json::json!(claude::PYTHON));
     report.insert("embed_feature".into(), serde_json::json!(cfg!(feature = "embed")));
     if let Some(deck) = deck {
         let tmp = std::env::temp_dir().join(format!("ankiplus-self-test-{}", std::process::id()));

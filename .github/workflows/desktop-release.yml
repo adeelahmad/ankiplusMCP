@@ -66,7 +66,11 @@ jobs:
           esac
           ls -l binaries
       - name: Build the installer
-        run: npx --yes @tauri-apps/cli@2 build --target ${{ matrix.target }} --bundles ${{ matrix.bundle }} --config tauri.release.conf.json --features ${{ matrix.features }}
+        # ONNX Runtime's macOS objects call ___isPlatformVersionAtLeast (compiler-rt), which
+        # rustc's -nodefaultlibs link leaves out once a deployment target is set.
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then export RUSTFLAGS="-C link-arg=$(xcrun clang --print-runtime-dir)/libclang_rt.osx.a"; fi
+          npx --yes @tauri-apps/cli@2 build --target ${{ matrix.target }} --bundles ${{ matrix.bundle }} --config tauri.release.conf.json --features ${{ matrix.features }}
       - name: Test the installed app (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -82,7 +86,8 @@ jobs:
           uv="$app/Contents/MacOS/uv"
           python3 -c "import json,sys; r=json.load(open('/tmp/self-test.json')); sys.exit(0 if r['ok'] and r['uv_path'].endswith('Contents/MacOS/uv') else 1)"
           spec=$(python3 -c "import json; print(json.load(open('/tmp/self-test.json'))['server_spec'])")
-          "$uv" tool run --from "$spec" ankiplusmcp --version
+          py=$(python3 -c "import json; print(json.load(open('/tmp/self-test.json'))['python'])")
+          "$uv" tool run --python "$py" --from "$spec" ankiplusmcp doctor --json
           hdiutil detach /tmp/ankiplus
       - name: Test the installed app (Windows)
         if: runner.os == 'Windows'
@@ -97,7 +102,8 @@ jobs:
           cat "$RUNNER_TEMP/self-test.json"
           python -c "import json,sys; r=json.load(open(r'$RUNNER_TEMP/self-test.json')); sys.exit(0 if r['ok'] and r['uv_path'] else 1)"
           spec=$(python -c "import json; print(json.load(open(r'$RUNNER_TEMP/self-test.json'))['server_spec'])")
-          "$dir/uv.exe" tool run --from "$spec" ankiplusmcp --version
+          py=$(python -c "import json; print(json.load(open(r'$RUNNER_TEMP/self-test.json'))['python'])")
+          "$dir/uv.exe" tool run --python "$py" --from "$spec" ankiplusmcp doctor --json
       - name: Collect
         run: |
           mkdir -p ../../../dist-installer
