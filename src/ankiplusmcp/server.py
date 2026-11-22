@@ -215,10 +215,10 @@ class API:
     def match_source(self, workspace: Workspace, index: IndexName='anking',
                      highlights: Annotated[list[Highlight],Field(max_length=2000)] | None=None,
                      covered: Score | None=None, related: Score | None=None, per_chunk: Annotated[int,Field(ge=1,le=10)]=3,
-                     expand_concepts: bool=True, unsuspend_concepts: bool=False, pdf_highlights: bool=False) -> dict:
-        """Match the workspace source (or user highlights; pdf_highlights=true uses only what the student highlighted in the PDF) against a deck index without AI. Classifies each chunk as covered/related/gap (default thresholds calibrated per mode: BM25 0.5/0.35, with embeddings 0.7/0.62), writes report.json, an unsuspend.json of suspended CARD ids to show the user, and prompt.md listing only the gaps to draft. Performs zero Anki operations."""
+                     expand_concepts: bool=True, unsuspend_concepts: bool=False, pdf_highlights: bool=False, sync: bool=True) -> dict:
+        """Match the workspace source (or user highlights; pdf_highlights=true uses only what the student highlighted in the PDF) against a deck index without AI. Classifies each chunk as covered/related/gap (default thresholds calibrated per mode: BM25 0.5/0.35, with embeddings 0.7/0.62), writes report.json, an unsuspend.json of suspended CARD ids to show the user, and prompt.md listing only the gaps to draft. An index built from the student's Anki profile is first brought up to date when the collection changed (only new or edited notes are embedded; sync=false skips it). Performs zero Anki operations."""
         return self.s.match_source(workspace,index,[h.model_dump() for h in highlights] if highlights else None,
-                                   covered,related,per_chunk,expand_concepts,unsuspend_concepts,pdf_highlights)
+                                   covered,related,per_chunk,expand_concepts,unsuspend_concepts,pdf_highlights,sync)
 
     def read_highlights(self, workspace: Workspace) -> dict:
         """Read highlights/underlines (and boxes over figures) the student made in the source PDF with any viewer: page, text, attached comment, colour, rectangle."""
