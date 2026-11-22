@@ -59,7 +59,7 @@ jobs:
       - name: Bundle uv as the app's sidecar
         run: |
           mkdir -p binaries dl
-          curl -fsSL -o "dl/${{ matrix.uv }}" "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/${{ matrix.uv }}"
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o "dl/${{ matrix.uv }}" "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/${{ matrix.uv }}"
           case "${{ matrix.uv }}" in
             *.zip) unzip -q -o "dl/${{ matrix.uv }}" -d dl/x && cp dl/x/uv.exe "binaries/uv-${{ matrix.target }}.exe" ;;
             *) tar -xzf "dl/${{ matrix.uv }}" -C dl && cp dl/*/uv "binaries/uv-${{ matrix.target }}" && chmod +x "binaries/uv-${{ matrix.target }}" ;;
