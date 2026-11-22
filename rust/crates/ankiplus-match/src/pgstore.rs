@@ -143,14 +143,14 @@ impl IndexStore for PostgresIndexStore {
              create schema {s};
              create table {s}.notes (doc integer primary key, note_id bigint not null,
                 card_ids bigint[] not null, suspended_card_ids bigint[] not null, deck text, tags text[],
-                text text not null, tsv tsvector{vec_col});
+                text text not null, front text, tsv tsvector{vec_col});
              create table {s}.meta (key text primary key, value jsonb);"
         ))
         .map_err(pg_err)?;
         let insert = if dim.is_some() {
-            format!("insert into {s}.notes (doc, note_id, card_ids, suspended_card_ids, deck, tags, text, embedding) values ($1, $2, $3, $4, $5, $6, $7, $8::text::vector)")
+            format!("insert into {s}.notes (doc, note_id, card_ids, suspended_card_ids, deck, tags, text, front, embedding) values ($1, $2, $3, $4, $5, $6, $7, $8, $9::text::vector)")
         } else {
-            format!("insert into {s}.notes (doc, note_id, card_ids, suspended_card_ids, deck, tags, text) values ($1, $2, $3, $4, $5, $6, $7)")
+            format!("insert into {s}.notes (doc, note_id, card_ids, suspended_card_ids, deck, tags, text, front) values ($1, $2, $3, $4, $5, $6, $7, $8)")
         };
         let stmt = tx.prepare(&insert).map_err(pg_err)?;
         for (i, n) in index.notes.iter().enumerate() {
@@ -158,9 +158,9 @@ impl IndexStore for PostgresIndexStore {
             match &index.vectors {
                 Some(v) => {
                     let lit = vector_literal(&v[i]);
-                    tx.execute(&stmt, &[&doc, &n.note_id, &n.card_ids, &n.suspended_card_ids, &n.deck, &n.tags, &n.text, &lit])
+                    tx.execute(&stmt, &[&doc, &n.note_id, &n.card_ids, &n.suspended_card_ids, &n.deck, &n.tags, &n.text, &n.front, &lit])
                 }
-                None => tx.execute(&stmt, &[&doc, &n.note_id, &n.card_ids, &n.suspended_card_ids, &n.deck, &n.tags, &n.text]),
+                None => tx.execute(&stmt, &[&doc, &n.note_id, &n.card_ids, &n.suspended_card_ids, &n.deck, &n.tags, &n.text, &n.front]),
             }
             .map_err(pg_err)?;
         }
@@ -189,7 +189,7 @@ impl IndexStore for PostgresIndexStore {
         let with_vec = meta.get("embeddings").and_then(Value::as_bool).unwrap_or(false);
         let vec_sel = if with_vec { ", embedding::text" } else { "" };
         let rows = db
-            .query(&format!("select note_id, card_ids, suspended_card_ids, deck, tags, text{vec_sel} from {s}.notes order by doc"), &[])
+            .query(&format!("select note_id, card_ids, suspended_card_ids, deck, tags, text, front{vec_sel} from {s}.notes order by doc"), &[])
             .map_err(pg_err)?;
         let notes: Vec<Note> = rows
             .iter()
@@ -200,6 +200,7 @@ impl IndexStore for PostgresIndexStore {
                 deck: r.get::<_, Option<String>>(3).unwrap_or_default(),
                 tags: r.get::<_, Option<Vec<String>>>(4).unwrap_or_default(),
                 text: r.get(5),
+                front: r.get(6),
                 ..Default::default()
             })
             .collect();
@@ -208,7 +209,7 @@ impl IndexStore for PostgresIndexStore {
         if reuse {
             let vectors = rows
                 .iter()
-                .map(|r| serde_json::from_str::<Vec<f32>>(r.get::<_, &str>(6)))
+                .map(|r| serde_json::from_str::<Vec<f32>>(r.get::<_, &str>(7)))
                 .collect::<Result<Vec<_>, _>>()?;
             index.vectors = Some(vectors);
         }

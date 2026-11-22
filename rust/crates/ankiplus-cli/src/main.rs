@@ -102,10 +102,10 @@ struct MatchArgs {
     backend: BackendArg,
     #[arg(long, value_enum, default_value = "auto")]
     embeddings: EmbedArg,
-    /// Default: 0.35 BM25 only, 0.55 with embeddings
+    /// Default: 0.5 BM25 only, 0.55 with embeddings
     #[arg(long)]
     covered: Option<f64>,
-    /// Default: 0.2 BM25 only, 0.4 with embeddings
+    /// Default: 0.35 BM25 only, 0.4 with embeddings
     #[arg(long)]
     related: Option<f64>,
     /// Also unsuspend concept neighbours of covered chunks

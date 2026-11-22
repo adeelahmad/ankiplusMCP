@@ -3,16 +3,21 @@
 //! Scores per hit (identical to the Python `DeckIndex.search`):
 //! - `bm25`: raw Okapi BM25 (ranking only, not comparable across queries),
 //! - `overlap`: IDF-weighted share of the query's terms the note contains (0..1),
+//! - `reverse`: IDF-weighted share of the note's first field (the fact, not the Extra)
+//!   that the query contains (0..1),
+//! - `lexical`: geometric mean of `overlap` and `reverse`, halved unless the first field
+//!   shares at least two non-number words with the query,
 //! - `cosine`: embedding similarity (0..1) when embeddings exist, else `None`,
-//! - `score`: `overlap`, raised to the mean of `overlap` and `cosine` when that is higher.
+//! - `score`: `lexical`, raised to the mean of `lexical` and `cosine` when that is higher.
 //!
-//! Candidates from both retrievers are merged by reciprocal rank fusion (k = 60).
+//! Numbers weigh a quarter of a word. Candidates (BM25 top 50, the 200 notes sharing the
+//! most query weight, dense top 50) are merged by reciprocal rank fusion (k = 60).
 
 use crate::deck::Note;
 use crate::text::{concept_tags, round_to, tag_words, tokenize};
 use indexmap::IndexMap;
 use serde_json::{Map, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub const RRF_K: f64 = 60.0;
 
@@ -29,6 +34,8 @@ pub struct Hit {
     pub doc: usize,
     pub score: f64,
     pub overlap: f64,
+    pub reverse: f64,
+    pub lexical: f64,
     pub cosine: Option<f64>,
     pub bm25: f64,
     pub rrf: f64,
@@ -46,6 +53,8 @@ pub struct DeckIndex {
     lengths: Vec<usize>,
     avgdl: f64,
     idf: HashMap<String, f64>,
+    unseen: f64,
+    fronts: Vec<(HashSet<String>, f64)>,
     by_tag: HashMap<String, Vec<usize>>,
 }
 
@@ -69,6 +78,8 @@ impl DeckIndex {
             lengths: vec![],
             avgdl: 1.0,
             idf: HashMap::new(),
+            unseen: 0.0,
+            fronts: vec![],
             by_tag: HashMap::new(),
         };
         index.build_bm25();
@@ -98,6 +109,27 @@ impl DeckIndex {
                 (t.clone(), (1.0 + (n - df + 0.5) / (df + 0.5)).ln())
             })
             .collect();
+        self.unseen = (1.0 + (n + 0.5) / 0.5).ln();
+        self.fronts = self
+            .notes
+            .iter()
+            .map(|note| {
+                let src = note.front.as_deref().filter(|f| !f.is_empty()).unwrap_or(&note.text);
+                let front: HashSet<String> = tokenize(src).into_iter().collect();
+                let mass = front.iter().map(|t| self.weight(t)).sum();
+                (front, mass)
+            })
+            .collect();
+    }
+
+    /// IDF, or a quarter of it for numbers; terms the deck never uses get the maximum.
+    pub fn weight(&self, term: &str) -> f64 {
+        let w = self.idf.get(term).copied().unwrap_or(self.unseen);
+        if term.bytes().all(|b| b.is_ascii_digit()) {
+            w * 0.25
+        } else {
+            w
+        }
     }
 
     fn build_tags(&mut self) {
@@ -138,12 +170,11 @@ impl DeckIndex {
         if terms.is_empty() {
             return Ok(vec![]);
         }
-        let n = self.notes.len() as f64;
-        // Terms the deck never uses still count: a fact about them is not covered.
-        let unseen = (1.0 + (n + 0.5) / 0.5).ln();
-        let q_idf: f64 = terms.keys().map(|t| self.idf.get(t).copied().unwrap_or(unseen)).sum();
+        // Terms the deck never uses still count (at maximum weight): a fact about them is not covered.
+        let weights: HashMap<&str, f64> = terms.keys().map(|t| (t.as_str(), self.weight(t))).collect();
+        let q_idf: f64 = terms.keys().map(|t| weights[t.as_str()]).sum();
         let mut bm25: IndexMap<usize, f64> = IndexMap::new();
-        let mut present: HashMap<usize, f64> = HashMap::new();
+        let mut present: IndexMap<usize, f64> = IndexMap::new();
         for term in terms.keys() {
             let Some(&idf) = self.idf.get(term) else { continue };
             for &(doc, tf) in &self.postings[term] {
@@ -151,12 +182,18 @@ impl DeckIndex {
                 let norm = tf * (self.k1 + 1.0)
                     / (tf + self.k1 * (1.0 - self.b + self.b * self.lengths[doc] as f64 / self.avgdl));
                 *bm25.entry(doc).or_default() += idf * norm;
-                *present.entry(doc).or_default() += idf;
+                *present.entry(doc).or_default() += weights[term.as_str()];
             }
         }
         let mut lexical: Vec<usize> = bm25.keys().copied().collect();
         lexical.sort_by(|a, b| bm25[b].partial_cmp(&bm25[a]).unwrap());
         lexical.truncate(pool);
+        // Also keep the notes that share the most query weight: BM25 favours short notes,
+        // and the coverage score needs the long ones too.
+        let taken: HashSet<usize> = lexical.iter().copied().collect();
+        let mut by_weight: Vec<usize> = present.keys().copied().collect();
+        by_weight.sort_by(|a, b| present[b].partial_cmp(&present[a]).unwrap());
+        lexical.extend(by_weight.into_iter().take(pool * 4).filter(|d| !taken.contains(d)));
 
         let mut cos: Option<Vec<f32>> = None;
         let mut dense: Vec<usize> = vec![];
@@ -182,15 +219,28 @@ impl DeckIndex {
             .iter()
             .map(|(&doc, &rrf)| {
                 let overlap = if q_idf != 0.0 { present.get(&doc).copied().unwrap_or(0.0) / q_idf } else { 0.0 };
+                let (front, mass) = &self.fronts[doc];
+                let reverse = if *mass != 0.0 {
+                    front.iter().filter(|t| terms.contains_key(*t)).map(|t| self.weight(t)).sum::<f64>() / mass
+                } else {
+                    0.0
+                };
+                let mut lex = (overlap * reverse).sqrt();
+                let shared = front.iter().filter(|t| terms.contains_key(*t) && !t.bytes().all(|b| b.is_ascii_digit())).count();
+                if shared < 2 {
+                    lex /= 2.0; // one shared word (or only numbers) is a coincidence, not the same fact
+                }
                 let cosine = cos.as_ref().map(|c| (c[doc] as f64).max(0.0));
                 let score = match cosine {
-                    None => overlap,
-                    Some(c) => overlap.max((overlap + c) / 2.0),
+                    None => lex,
+                    Some(c) => lex.max((lex + c) / 2.0),
                 };
                 Hit {
                     doc,
                     score: round_to(score, 4),
                     overlap: round_to(overlap, 4),
+                    reverse: round_to(reverse, 4),
+                    lexical: round_to(lex, 4),
                     cosine: cosine.map(|c| round_to(c, 4)),
                     bm25: round_to(bm25.get(&doc).copied().unwrap_or(0.0), 4),
                     rrf,

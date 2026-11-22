@@ -35,6 +35,9 @@ pub struct Note {
     pub fields: IndexMap<String, String>,
     #[serde(default)]
     pub text: String,
+    /// The first chosen field, cleaned: the fact itself, without the Extra.
+    #[serde(default)]
+    pub front: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -74,6 +77,10 @@ pub fn load_deck(path: &Path, opts: &LoadOptions) -> Result<Vec<Note>, Error> {
         if opts.suspended_only && note.suspended_card_ids.is_empty() {
             continue;
         }
+        let chosen_first: Option<String> = match opts.fields {
+            Some(names) => names.iter().find_map(|n| note.fields.get(n)).cloned(),
+            None => note.fields.values().next().cloned(),
+        };
         let chosen: Vec<&String> = match opts.fields {
             Some(names) => names.iter().filter_map(|n| note.fields.get(n)).collect(),
             None => note.fields.values().take(2).collect(),
@@ -84,6 +91,7 @@ pub fn load_deck(path: &Path, opts: &LoadOptions) -> Result<Vec<Note>, Error> {
             .filter(|t| !t.is_empty())
             .collect::<Vec<_>>()
             .join("\n");
+        note.front = Some(chosen_first.map(|v| clean_text(&v)).unwrap_or_default());
         if !note.text.is_empty() {
             out.push(note);
         }
@@ -181,6 +189,7 @@ fn from_json(path: &Path) -> Result<Vec<Note>, Error> {
                 .unwrap_or_default(),
             fields,
             text: String::new(),
+            front: None,
         });
     }
     Ok(notes)
@@ -227,6 +236,8 @@ struct CardInfo {
 
 fn from_sqlite(path: &Path) -> Result<Vec<Note>, Error> {
     let db = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    // Anki's schema 18 indexes use its own 'unicase' collation; without it SQLite refuses those queries.
+    db.create_collation("unicase", |a: &str, b: &str| a.to_lowercase().cmp(&b.to_lowercase()))?;
     let tables: Vec<String> = db
         .prepare("select name from sqlite_master where type='table'")?
         .query_map([], |r| r.get(0))?
@@ -283,6 +294,7 @@ fn from_sqlite(path: &Path) -> Result<Vec<Note>, Error> {
             tags: tags.split_whitespace().map(String::from).collect(),
             fields,
             text: String::new(),
+            front: None,
         });
     }
     Ok(notes)
