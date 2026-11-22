@@ -205,7 +205,7 @@ def test_garbled_pdf_text_and_line_joining():
 
 def test_threshold_defaults_follow_the_index_mode():
     t = match.Thresholds()
-    assert (t.resolve(False).covered, t.resolve(False).related) == (.35, .2)
+    assert (t.resolve(False).covered, t.resolve(False).related) == (.5, .35)
     assert (t.resolve(True).covered, t.resolve(True).related) == (.55, .4)
     assert match.Thresholds(covered=.7).resolve(True).covered == .7
 
@@ -217,8 +217,8 @@ def test_synthetic_benchmark_bm25_no_wrong_unsuspends():
     bench = importlib.util.module_from_spec(spec); spec.loader.exec_module(bench)
     index = match.DeckIndex(match.load_deck(bench.ROOT / 'synthetic_anking.json'))
     labels = json.loads((bench.ROOT / 'labels.json').read_text())
-    row = next(r for r in bench.sweep(index, labels) if r['covered'] == .35)
-    assert row['wrong_unsuspends'] == 0 and row['recall'] >= .85
+    row = next(r for r in bench.sweep(index, labels) if r['covered'] == .5)
+    assert row['wrong_unsuspends'] == 0 and row['recall'] >= .6
     assert match.evaluate(index, labels)['recall_at_k'] >= .9
 
 
@@ -291,3 +291,44 @@ def test_deck_size_limit_allows_big_apkg(tmp_path, monkeypatch):
             s._deck_file(str(apkg))
     finally:
         s.close()
+
+
+def test_score_needs_both_directions_and_real_words():
+    notes = [{'note_id': 1, 'card_ids': [11], 'suspended_card_ids': [11], 'tags': [], 'text': '3 2 = 9', 'front': '3 2 = 9'},
+             {'note_id': 2, 'card_ids': [12], 'suspended_card_ids': [12], 'tags': [],
+              'front': 'The buccinator is the principal muscle of the cheek', 'text': 'The buccinator is the principal muscle of the cheek'},
+             {'note_id': 3, 'card_ids': [13], 'suspended_card_ids': [13], 'tags': [],
+              'front': 'Epistaxis most often arises from Kiesselbach plexus',
+              'text': 'Epistaxis most often arises from Kiesselbach plexus\nsupplied by the labial artery of the facial artery and others'}]
+    notes += [{'note_id': 100 + i, 'card_ids': [], 'suspended_card_ids': [], 'tags': [], 'text': f'filler word{i} muscle artery', 'front': f'filler word{i}'}
+              for i in range(30)]
+    index = match.DeckIndex(notes)
+    top = lambda q: {index.notes[h['doc']]['note_id']: h['score'] for h in index.search(q, k=5)}
+    assert top('3 Histology 9 2').get(1, 0) < .35
+    assert top('Lateral wall: cheeks (buccinator muscle)')[2] >= .5
+    # the note's Extra mentions the words, but its fact is about something else
+    assert top('Blood supply of the lips: labial arteries from the facial artery').get(3, 0) < .35
+
+
+def test_schema18_collection_with_unicase_indexes(tmp_path):
+    # Real Anki 2.1.50+ exports index notetype/field names with Anki's own 'unicase' collation.
+    path = tmp_path / 'collection.anki2'
+    db = sqlite3.connect(path)
+    db.create_collation('unicase', lambda a, b: (a.lower() > b.lower()) - (a.lower() < b.lower()))
+    db.executescript('''create table col (decks text, models text);
+        create table notes (id integer, mid integer, tags text, flds text);
+        create table cards (id integer, nid integer, did integer, queue integer);
+        create table decks (id integer, name text collate unicase);
+        create table notetypes (id integer, name text collate unicase);
+        create table fields (ntid integer, ord integer, name text collate unicase, primary key (ntid, ord)) without rowid;
+        create unique index idx_fields_name_ntid on fields (name, ntid);
+        create unique index idx_notetypes_name on notetypes (name);''')
+    db.execute("insert into col values ('', '')")
+    db.execute("insert into decks values (1, 'AnKing')")
+    db.execute("insert into notetypes values (9, 'AnKingOverhaul')")
+    db.executemany('insert into fields values (9, ?, ?)', [(0, 'Text'), (1, 'Extra')])
+    db.execute("insert into notes values (5, 9, '', 'The buccinator is the muscle of the cheek\x1fextra')")
+    db.execute('insert into cards values (50, 5, 1, -1)')
+    db.commit(); db.close()
+    notes = match.load_deck(path)
+    assert notes[0]['fields']['Text'].startswith('The buccinator') and notes[0]['front'] == 'The buccinator is the muscle of the cheek'

@@ -8,7 +8,7 @@ Supported inputs:
 
 Every note becomes a plain dict::
 
-    {'note_id', 'card_ids', 'suspended_card_ids', 'deck', 'notetype', 'tags', 'fields', 'text'}
+    {'note_id', 'card_ids', 'suspended_card_ids', 'deck', 'notetype', 'tags', 'fields', 'text', 'front'}
 """
 from contextlib import closing
 import html
@@ -69,6 +69,7 @@ def load_deck(path, deck_prefix=None, fields=None, suspended_only=False):
             continue
         chosen = _choose_fields(note['fields'], fields)
         note['text'] = '\n'.join(t for t in (clean_text(v) for v in chosen) if t)
+        note['front'] = clean_text(chosen[0]) if chosen else ''
         if note['text']:
             out.append(note)
     return out
@@ -159,6 +160,8 @@ def _from_sqlite_copy(path):
 
 def _from_sqlite(path):
     with closing(sqlite3.connect(f'file:{path}?mode=ro', uri=True)) as db:
+        # Anki's schema 18 indexes use its own 'unicase' collation; without it SQLite refuses those queries.
+        db.create_collation('unicase', lambda a, b: (a.casefold() > b.casefold()) - (a.casefold() < b.casefold()))
         tables = {r[0] for r in db.execute("select name from sqlite_master where type='table'")}
         if 'notes' not in tables or 'cards' not in tables:
             raise DeckError('Not an Anki collection (no notes/cards tables).')
