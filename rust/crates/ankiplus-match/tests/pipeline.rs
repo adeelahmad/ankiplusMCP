@@ -574,3 +574,25 @@ fn chunks_keep_their_heading_as_context() {
     assert!(last.text.starts_with("Commonly due to mumps"));
     assert_eq!(last.context, "Sialadenitis");
 }
+
+#[test]
+fn candidates_keep_only_cards_whose_answer_the_line_says() {
+    let notes = vec![
+        cloze_note(1, "Acute pancreatitis: most common cause is gallstones; second is alcohol", &[(11, "gallstones"), (12, "alcohol")]),
+        cloze_note(2, "Pancreatitis causes epigastric pain radiating to the back", &[(21, "back")]),
+    ];
+    let index = DeckIndex::new(notes, None, Default::default());
+    let chunks = vec![Chunk {
+        id: "p1-1".into(),
+        page: 1,
+        title: String::new(),
+        text: "Causes of pancreatitis: gallstones, hypertriglyceridaemia".into(),
+        context: String::new(),
+    }];
+    let t = Thresholds { covered: Some(0.99), related: Some(0.05), ..Default::default() };
+    let report = match_chunks(&index, &chunks, &t, &MatchOptions::default()).unwrap();
+    let cands: std::collections::HashMap<i64, _> = report.unsuspend.candidates.iter().map(|c| (c.note_id, c)).collect();
+    assert!(!cands.contains_key(&2)); // hides 'back', which the line never says
+    assert_eq!(cands[&1].cards.iter().map(|c| c.card_id).collect::<Vec<_>>(), vec![11]);
+    assert!(cands[&1].answer_in_lecture);
+}

@@ -177,6 +177,9 @@ pub struct Candidate {
     pub cards: Vec<CardQuestion>,
     pub suspended_card_ids: Vec<i64>,
     pub answer_named: bool,
+    /// Some card's hidden answer is in the lecture line or its heading.
+    #[serde(default)]
+    pub answer_in_lecture: bool,
 }
 
 /// An accepted match that states a different number with the same unit.
@@ -419,16 +422,45 @@ pub fn match_chunks(
         }
         let taken: HashSet<i64> =
             accepted.iter().map(|m| m.note_id).chain(clashes.iter().map(|c| c.note_id)).collect();
+        let terms_here: HashSet<String> =
+            tokenize(&format!("{} {}", chunk.text, chunk.context)).into_iter().collect();
         for m in matches.iter().filter(|m| !taken.contains(&m.note_id) && !m.suspended_card_ids.is_empty()).take(t.candidates) {
+            // Offer only the cards whose hidden answer the line (or its heading) contains: a card that hides
+            // something the lecture never says cannot test it. A named answer keeps its cards as they are.
+            let open_cards: Vec<&CardQuestion> = m
+                .cards
+                .iter()
+                .filter(|c| m.suspended_card_ids.contains(&c.card_id) && !already.contains(&c.card_id))
+                .collect();
+            let mut testing: Vec<&CardQuestion> =
+                open_cards.iter().copied().filter(|c| tokenize(&c.answer).iter().any(|t| terms_here.contains(t))).collect();
+            let in_line = !testing.is_empty();
+            let named = m.answer_named.unwrap_or(false);
+            if !in_line && named {
+                testing = open_cards;
+            }
+            if testing.is_empty() {
+                continue;
+            }
             let entry = candidates.entry(m.note_id).or_insert_with(|| Candidate {
                 note_id: m.note_id,
                 score: m.score.unwrap_or(0.0),
                 chunks: vec![],
                 preview: m.preview.clone(),
-                cards: m.cards.clone(),
-                suspended_card_ids: m.suspended_card_ids.iter().copied().filter(|c| !already.contains(c)).collect(),
-                answer_named: m.answer_named.unwrap_or(false),
+                cards: vec![],
+                suspended_card_ids: vec![],
+                answer_named: named,
+                answer_in_lecture: false,
             });
+            entry.answer_in_lecture |= in_line;
+            for c in testing {
+                if !entry.cards.iter().any(|e| e.card_id == c.card_id) {
+                    entry.cards.push(c.clone());
+                }
+            }
+            entry.suspended_card_ids = entry.cards.iter().map(|c| c.card_id).collect();
+            entry.suspended_card_ids.sort_unstable();
+            entry.suspended_card_ids.dedup();
             entry.chunks.push(chunk.id.clone());
         }
         if opts.unsuspend_concepts && status == "covered" {

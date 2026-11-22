@@ -15,6 +15,9 @@ already covered by existing cards ({cards} suspended cards proposed for unsuspen
 - Group closely related facts into one cloze note (AnKing Step deck style); do not make
   one card per sentence. In a list, give each item its own cloze number (c1, c2, c3...);
   never hide a whole list under one number.
+- Coverage pass: every term the lecture defines (a symptom, sign, structure or process)
+  gets its own definition card, even when it looks simple. For anatomy, card each named
+  structure's nerve supply, blood supply and lymph drainage wherever the lecture gives them.
 - A conflict means the deck states a different value: card the lecture's value and name the
   difference in Extra.
 - Cite the page in `source_ref` for every card. Use the AnkiPlus tools for figures and
