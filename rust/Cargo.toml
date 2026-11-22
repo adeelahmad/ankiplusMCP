@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = ["crates/ankiplus-match", "crates/ankiplus-cli", "app/src-tauri"]
+# `cargo build` / `cargo test` from here skip the desktop shell, which needs
+# WebKitGTK on Linux. Build it with `cargo build -p ankiplus-desktop`.
+default-members = ["crates/ankiplus-match", "crates/ankiplus-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+rust-version = "1.85"
+
+[workspace.dependencies]
+ankiplus-match = { path = "crates/ankiplus-match" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+anyhow = "1"
+
+[profile.release]
+lto = "thin"

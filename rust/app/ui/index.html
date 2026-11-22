@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AnkiPlus</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>AnkiPlus</h1>
+    <p class="sub">Find what your deck already covers. No AI calls; nothing changes in Anki.</p>
+  </header>
+
+  <section>
+    <h2>1. Deck</h2>
+    <label>Deck export (.apkg, .colpkg, .anki2 or .json)
+      <input id="deck" placeholder="/Users/you/Downloads/AnKing Step 1.apkg">
+    </label>
+    <div class="row">
+      <label>Deck prefix <input id="prefix" placeholder="AnKing"></label>
+      <label>Embeddings
+        <select id="embeddings"><option>auto</option><option>off</option><option>required</option></select>
+      </label>
+      <label class="check"><input type="checkbox" id="postgres"> Postgres store</label>
+      <label class="check"><input type="checkbox" id="rebuild"> Rebuild</label>
+    </div>
+    <button id="index">Index deck</button>
+    <p id="index-status" class="status"></p>
+  </section>
+
+  <section>
+    <h2>2. Lecture</h2>
+    <label>PDF path (optional)
+      <input id="pdf" placeholder="/Users/you/Lectures/MED241_L025.pdf">
+    </label>
+    <label>…or paste text / Markdown (each # heading is one page)
+      <textarea id="text" rows="8"></textarea>
+    </label>
+    <div class="row">
+      <label>Covered ≥ <input id="covered" type="number" step="0.05" value="0.6"></label>
+      <label>Related ≥ <input id="related" type="number" step="0.05" value="0.35"></label>
+      <label class="check"><input type="checkbox" id="concepts"> Also unsuspend concept neighbours</label>
+    </div>
+    <button id="match">Match</button>
+    <p id="match-status" class="status"></p>
+  </section>
+
+  <section id="results" hidden>
+    <h2>3. Results</h2>
+    <p id="summary"></p>
+    <h3>Cards to unsuspend (CARD ids)</h3>
+    <textarea id="unsuspend" rows="3" readonly></textarea>
+    <h3>Chunks</h3>
+    <table>
+      <thead><tr><th>Page</th><th>Status</th><th>Score</th><th>Text</th><th>Best note</th></tr></thead>
+      <tbody id="chunks"></tbody>
+    </table>
+    <h3>Prompt (gaps only)</h3>
+    <textarea id="prompt" rows="14" readonly></textarea>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>

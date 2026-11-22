@@ -37,7 +37,7 @@ in files.
 | Part | What it does |
 |---|---|
 | BM25 | Keyword ranking over note text plus topic-tag names. |
-| Embeddings | `nomic-embed-text-v1.5` run locally through ONNX (fastembed), with `search_document:`/`search_query:` prefixes, cut to 256 dimensions. Downloaded once from Hugging Face. The same ONNX model runs in Rust (fastembed-rs) for a future desktop app. |
+| Embeddings | `nomic-embed-text-v1.5` run locally through ONNX (fastembed), with `search_document:`/`search_query:` prefixes, cut to 256 dimensions. Downloaded once from Hugging Face. The same ONNX model runs in Rust (fastembed-rs) in the desktop app under `rust/` (see `rust/README.md`). |
 | Fusion | Reciprocal rank fusion (k = 60) merges both candidate lists. |
 | Storage | Embedded Postgres + pgvector (`pixeltable-pgserver`, private data folder, socket only) when installed, else files. Both sit behind `IndexStore`. |
 
