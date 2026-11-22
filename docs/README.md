@@ -9,6 +9,7 @@ current behaviour.
 
 | Guide | Read it when you want to… |
 | --- | --- |
+| [Student setup](student-setup.md) | Install everything with one command, export AnKing and start. |
 | [Installation and configuration](setup.md) | Register a host, choose profiles/browsers, configure folders or troubleshoot. |
 | [Worked study workflow](study-workflow.md) | Reuse existing cards, draft gaps, inspect previews and approve an Anki handoff. |
 | [All 40 tools](tools.md) | Look up inputs, outputs, examples, limits and implementation paths. |

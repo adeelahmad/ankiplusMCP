@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
 export const VERSION = pkg.version;
-export const REPOSITORY = 'Hamza-Xoho/ankiplusMCP';
+export const REPOSITORY = 'adeelahmad/ankiplusMCP';
 
 /** The Python requirement uv installs. ANKIPLUSMCP_PY_SPEC overrides it for development. */
 export function pySpec(env) {

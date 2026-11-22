@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ankiplusmcp"
-version = "0.3.0"
+version = "0.4.0"
 requires-python = ">=3.12"
 description = "Independent mechanical MCP helpers for Anki cards and lecture sources"
 readme = "README.md"
@@ -19,7 +19,7 @@ ocr = []
 render = ["playwright~=1.64"]
 # Deck matching: local ONNX embeddings, embedded Postgres + pgvector, newer .apkg format.
 match = ["fastembed~=0.9", "pixeltable-pgserver~=0.7", "psycopg[binary]~=3.3", "zstandard>=0.23"]
-all = ["ankiplusmcp[ocr,render]"]
+all = ["ankiplusmcp[ocr,render,match]"]
 dev = ["ankiplusmcp[all]", "pytest>=8", "build"]
 
 [project.scripts]

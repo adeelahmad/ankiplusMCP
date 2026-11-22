@@ -12,7 +12,7 @@ resolution-markers = [
 
 [[package]]
 name = "ankiplusmcp"
-version = "0.3.0"
+version = "0.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "filelock" },
@@ -26,12 +26,20 @@ dependencies = [
 
 [package.optional-dependencies]
 all = [
+    { name = "fastembed" },
+    { name = "pixeltable-pgserver" },
     { name = "playwright" },
+    { name = "psycopg", extra = ["binary"] },
+    { name = "zstandard" },
 ]
 dev = [
     { name = "build" },
+    { name = "fastembed" },
+    { name = "pixeltable-pgserver" },
     { name = "playwright" },
+    { name = "psycopg", extra = ["binary"] },
     { name = "pytest" },
+    { name = "zstandard" },
 ]
 match = [
     { name = "fastembed" },
@@ -46,7 +54,7 @@ render = [
 [package.metadata]
 requires-dist = [
     { name = "ankiplusmcp", extras = ["all"], marker = "extra == 'dev'" },
-    { name = "ankiplusmcp", extras = ["ocr", "render"], marker = "extra == 'all'" },
+    { name = "ankiplusmcp", extras = ["ocr", "render", "match"], marker = "extra == 'all'" },
     { name = "build", marker = "extra == 'dev'" },
     { name = "fastembed", marker = "extra == 'match'", specifier = "~=0.9" },
     { name = "filelock", specifier = ">=3.13" },
