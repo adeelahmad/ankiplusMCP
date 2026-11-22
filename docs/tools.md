@@ -2,7 +2,7 @@
 
 [README](../README.md) · [Setup](setup.md) · [Developer architecture](developer-guide.md)
 
-These are the **38 MCP tools** registered by [server.py](../src/ankiplusmcp/server.py).
+These are the **40 MCP tools** registered by [server.py](../src/ankiplusmcp/server.py).
 Students normally ask their assistant for an outcome; the assistant makes these
 calls. Developers can use this reference to understand the same calls and follow
 them into the code. The tools do no model inference and no Anki collection I/O.
@@ -517,7 +517,7 @@ collection; the host must do that through Anki MCP.
 
 ## Matching existing decks (no AI)
 
-These five tools are the deterministic path from a lecture to existing cards: index
+These seven tools are the deterministic path from a lecture to existing cards: index
 a deck once, then match each lecture against it. Setup and tuning: [matching.md](matching.md).
 
 ### index_deck
@@ -560,6 +560,20 @@ Acrobat, Zotero, Edge). **Returns:** `page`, `text`, `note` (an attached comment
 `rect` per highlight, plus `kind: "region"` boxes drawn over figures. Pages with a broken text
 layer are OCR'd under each highlight. Pass `pdf_highlights=true` to `match_source` to match only
 these.
+
+### prepare_unsuspend
+
+**Use it to:** show the user which existing cards a match proposes to unsuspend, before anything
+changes. **Inputs:** `workspace`, optional `match_id` (default: the latest match),
+`exclude_note_ids` (notes the user rejects), `offset`, `limit`. **Returns:** each note's card text
+with the lecture lines it matched, and the approved CARD ids (also saved as
+`match/<id>/unsuspend-approved.json`). Cards already unsuspended for this deck are left out.
+
+### record_unsuspend
+
+**Use it to:** log what the Anki MCP reported after unsuspending. **Inputs:** `workspace`,
+`card_ids`, `status` (`success`/`failed`/`ambiguous`), optional `match_id`, `detail`. Successful
+card IDs go into the deck index's `unsuspended.jsonl` and are never proposed again by later lectures.
 
 ### check_source_support
 
