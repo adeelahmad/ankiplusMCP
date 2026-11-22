@@ -9,7 +9,7 @@ use std::collections::HashSet;
 
 /// `None` picks the calibrated default for the index (with or without embeddings),
 /// as in the Python `Thresholds.resolve`: BM25 only 0.5 / 0.35 (calibrated on a real
-/// AnKing export), with Nomic embeddings 0.55 / 0.4 (synthetic benchmark).
+/// AnKing export), with Nomic embeddings 0.7 / 0.62 (same labels).
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct Thresholds {
     pub covered: Option<f64>,
@@ -30,7 +30,7 @@ impl Default for Thresholds {
 
 impl Thresholds {
     pub const BM25: (f64, f64) = (0.5, 0.35);
-    pub const EMBEDDINGS: (f64, f64) = (0.55, 0.4);
+    pub const EMBEDDINGS: (f64, f64) = (0.7, 0.62);
 
     /// Fill unset thresholds with the calibrated defaults.
     pub fn resolve(&self, embeddings: bool) -> Thresholds {
