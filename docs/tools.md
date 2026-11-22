@@ -583,7 +583,8 @@ these.
 
 **Use it to:** show the user which existing cards a match proposes to unsuspend, before anything
 changes. **Inputs:** `workspace`, optional `match_id` (default: the latest match),
-`exclude_note_ids` (notes the user rejects), `offset`, `limit`. **Returns:** each note's card text
+`exclude_note_ids` (notes the host or user rejects), `include_note_ids` (candidates from
+`unsuspend.json` the host judged to test a lecture line), `offset`, `limit`. **Returns:** each note's card text
 with the lecture lines it matched, and the approved CARD ids (also saved as
 `match/<id>/unsuspend-approved.json`). Cards already unsuspended for this deck are left out.
 

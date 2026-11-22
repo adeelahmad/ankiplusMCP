@@ -69,6 +69,9 @@ def tag_words(tags):
     return words
 
 
+ANSWER_FLOOR = 0.36   # with 0.5 x score: a named-answer card with score 0.6 reaches 0.66 (related, not covered)
+
+
 class DeckIndex:
     def __init__(self, notes, embedder=None, k1=1.5, b=0.75, meta=None):
         self.notes = notes
@@ -78,6 +81,7 @@ class DeckIndex:
         self.vectors = None
         self._build_bm25()
         self._build_tags()
+        self._build_answers()
 
     # -- construction -------------------------------------------------------
     def _build_bm25(self):
@@ -96,6 +100,30 @@ class DeckIndex:
         for note in self.notes:
             front = set(tokenize(note.get('front') or note['text']))
             self.fronts.append((front, sum(self.weight(t) for t in front)))
+
+    ANSWER_MAX_WORDS = 4
+    ANSWER_MIN_WEIGHT = 6.0   # a specific term (a disease, a nerve), not "type 2" or "gastric"
+
+    def _build_answers(self):
+        """Phrase -> notes whose card hides that phrase. A lecture line that names the hidden
+        answer of a card ("Dysentery: blood and mucus in stools" vs "Bloody diarrhoea due to
+        infection is known as {{c1::dysentery}}") is a strong candidate that wording alone misses."""
+        self.answers = {}
+        for i, note in enumerate(self.notes):
+            for answer in (note.get('card_answers') or {}).values():
+                for part in str(answer).split(' … '):
+                    words = tuple(tokenize(part))
+                    if 0 < len(words) <= self.ANSWER_MAX_WORDS and sum(self.weight(t) for t in words) >= self.ANSWER_MIN_WEIGHT:
+                        self.answers.setdefault(words, set()).add(i)
+
+    def answered(self, text):
+        """Notes whose hidden answer appears, as a whole phrase, in ``text``."""
+        words = tokenize(text)
+        found = set()
+        for size in range(1, self.ANSWER_MAX_WORDS + 1):
+            for start in range(len(words) - size + 1):
+                found |= self.answers.get(tuple(words[start:start + size]), set())
+        return found
 
     def weight(self, term):
         w = self.idf.get(term, self.unseen)
@@ -159,8 +187,9 @@ class DeckIndex:
             query = _normalise(np.asarray([self.embedder.embed_query(text)]))[0]
             cos = self.vectors @ query
             dense = list(np.argsort(-cos)[:pool])
+        answered = self.answered(text) if getattr(self, 'answers', None) else set()
         fused = {}
-        for ranks in (lexical, dense):
+        for ranks in (lexical, dense, sorted(answered)):
             for rank, doc in enumerate(ranks):
                 fused[int(doc)] = fused.get(int(doc), 0.0) + 1.0 / (60 + rank)
         hits = []
@@ -173,7 +202,9 @@ class DeckIndex:
                 lex /= 2  # one shared word (or only numbers) is a coincidence, not the same fact
             cosine = None if cos is None else max(0.0, float(cos[doc]))
             score = lex if cosine is None else max(lex, 0.3 * lex + 0.7 * cosine)
-            hits.append({'doc': doc, 'score': round(score, 4), 'overlap': round(overlap, 4),
+            if doc in answered:   # the card hides a phrase this line names
+                score = max(score, ANSWER_FLOOR + 0.5 * score)
+            hits.append({'doc': doc, 'score': round(score, 4), 'overlap': round(overlap, 4), 'answer_named': doc in answered,
                          'reverse': round(reverse, 4), 'lexical': round(lex, 4),
                          'cosine': None if cosine is None else round(cosine, 4),
                          'bm25': round(bm25.get(doc, 0.0), 4), 'rrf': fused[doc]})
