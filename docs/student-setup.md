@@ -48,8 +48,8 @@ command replaces that entry and keeps a backup of the app's config next to it.
 ## 2. Nothing to export
 
 AnkiPlus reads your Anki collection directly (a private copy, so Anki can stay open). The
-first index of AnKing takes a while (about an hour on a laptop, once). After an AnkiHub
-sync, ask it to update the index: only new or changed cards are processed.
+first index of AnKing takes a while (about an hour on a laptop, once). After that it re-syncs
+by itself before each lecture match: only new or changed cards are processed.
 
 ## 3. Restart your AI app and ask
 
