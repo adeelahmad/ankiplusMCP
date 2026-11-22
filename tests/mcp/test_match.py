@@ -364,10 +364,11 @@ def test_postgres_errors_carry_the_server_log(tmp_path, monkeypatch):
 
 def test_anki_base_per_platform(tmp_path):
     from ankiplusmcp.match import profiles
-    assert profiles.anki_base({}, 'darwin', '/Users/s') == __import__('pathlib').Path('/Users/s/Library/Application Support/Anki2')
-    assert profiles.anki_base({'APPDATA': r'C:\Users\s\AppData\Roaming'}, 'win32', '/x').name == 'Anki2'
-    assert profiles.anki_base({}, 'linux', '/home/s') == __import__('pathlib').Path('/home/s/.local/share/Anki2')
-    assert profiles.anki_base({'ANKI_BASE': str(tmp_path)}, 'linux', '/home/s') == tmp_path
+    home = tmp_path / 'student'
+    assert profiles.anki_base({}, 'darwin', home) == home / 'Library' / 'Application Support' / 'Anki2'
+    assert profiles.anki_base({'APPDATA': str(tmp_path / 'Roaming')}, 'win32', home) == tmp_path / 'Roaming' / 'Anki2'
+    assert profiles.anki_base({}, 'linux', home) == home / '.local' / 'share' / 'Anki2'
+    assert profiles.anki_base({'ANKI_BASE': str(tmp_path)}, 'linux', home) == tmp_path
 
 
 def _anki_base(tmp_path, *names):
