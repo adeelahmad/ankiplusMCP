@@ -69,7 +69,7 @@ those when you need them; other tools work without them.
 Replace `/absolute/lectures` with the folder containing your study material:
 
 ```sh
-npx -y github:adeelahmad/ankiplusMCP#release-v0.5.1 init --host claude-code --source-root /absolute/lectures
+npx -y github:adeelahmad/ankiplusMCP#release-v0.5.2 init --host claude-code --source-root /absolute/lectures
 ```
 
 Change `--host` to `claude-desktop`, `codex`, `opencode` or `hermes` as appropriate.
@@ -84,8 +84,8 @@ See [host-specific setup and options](docs/setup.md#install-and-register).
 ### 3. Check optional features
 
 ```sh
-npx -y github:adeelahmad/ankiplusMCP#release-v0.5.1 doctor
-npx -y github:adeelahmad/ankiplusMCP#release-v0.5.1 setup
+npx -y github:adeelahmad/ankiplusMCP#release-v0.5.2 doctor
+npx -y github:adeelahmad/ankiplusMCP#release-v0.5.2 setup
 ```
 
 `doctor` reports missing prerequisites. `setup` offers to download Chromium for

@@ -53,4 +53,4 @@ Nothing changes in Anki until you approve the list. Sync Anki afterwards.
 
 ## If something is missing
 
-Run `npx -y github:adeelahmad/ankiplusMCP#release-v0.5.1 doctor`. Each missing item prints its fix.
+Run `npx -y github:adeelahmad/ankiplusMCP#release-v0.5.2 doctor`. Each missing item prints its fix.
