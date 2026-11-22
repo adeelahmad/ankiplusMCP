@@ -47,6 +47,20 @@ def shutdown():
         _servers.clear()
 
 
+def log_tail(data_dir, lines=40):
+    """Last lines of the embedded server's log, to explain a crash (e.g. a backend killed by a signal)."""
+    try:
+        log = Path(server(data_dir).log)
+        return '\n'.join(log.read_text(errors='replace').splitlines()[-lines:]) if log.is_file() else '(no server log)'
+    except Exception as exc:  # the server itself may be gone
+        return f'(server log unavailable: {exc})'
+
+
+def _explain(exc, data_dir):
+    exc.add_note('Embedded Postgres server log (tail):\n' + log_tail(data_dir))
+    return exc
+
+
 class PostgresIndexStore(IndexStore):
     def __init__(self, data_dir, name):
         if not re.fullmatch(r'[A-Za-z0-9_]{1,60}', name.replace('-', '_')):
@@ -59,6 +73,20 @@ class PostgresIndexStore(IndexStore):
         return psycopg.connect(server(self.data_dir).get_uri(), autocommit=False)
 
     def save(self, index):
+        import psycopg
+        try:
+            return self._save(index)
+        except psycopg.Error as exc:
+            raise _explain(exc, self.data_dir)
+
+    def load(self, cls, embedder=None):
+        import psycopg
+        try:
+            return self._load(cls, embedder)
+        except psycopg.Error as exc:
+            raise _explain(exc, self.data_dir)
+
+    def _save(self, index):
         dim = None if index.vectors is None else int(index.vectors.shape[1])
         with self._connect() as db, db.cursor() as cur:
             cur.execute('create extension if not exists vector')
@@ -88,7 +116,7 @@ class PostgresIndexStore(IndexStore):
             cur.execute(f'insert into {self.schema}.meta values (%s, %s)', ('meta', json.dumps(meta)))
         return meta
 
-    def load(self, cls, embedder=None):
+    def _load(self, cls, embedder=None):
         with self._connect() as db, db.cursor() as cur:
             cur.execute(f"select value from {self.schema}.meta where key='meta'")
             meta = cur.fetchone()[0]
