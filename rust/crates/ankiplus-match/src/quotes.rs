@@ -14,6 +14,32 @@ use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
 
 static WORDS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\w+").unwrap());
+static NUMBERED: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\{\{c(\d+)::").unwrap());
+/// This many items behind one cloze number is a list card: one number per item instead.
+pub const LIST_LIMIT: usize = 3;
+
+/// Shape problems a mechanical check can see: a list hidden under one cloze number, and
+/// text whose brackets don't pair up (a sign the sentence was cut while drafting).
+pub fn form_problems(raw: &str) -> Vec<String> {
+    let mut problems = Vec::new();
+    // Python sorts the numbers as strings ("10" before "2").
+    let mut counts: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+    for c in NUMBERED.captures_iter(raw) {
+        *counts.entry(c[1].to_string()).or_default() += 1;
+    }
+    for (number, n) in counts {
+        if n >= LIST_LIMIT {
+            problems.push(format!("c{number} hides {n} items at once; give each item its own cloze number"));
+        }
+    }
+    let text = clean_text(raw);
+    for (left, right) in [('(', ')'), ('[', ']')] {
+        if text.matches(left).count() != text.matches(right).count() {
+            problems.push(format!("unpaired {left}{right}: the sentence looks cut; check it against the source"));
+        }
+    }
+    problems
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DraftCard {
@@ -31,6 +57,8 @@ pub struct CardSupport {
     pub term_support: f64,
     pub cited_pages: Vec<i64>,
     pub answers_not_in_source: Vec<String>,
+    #[serde(default)]
+    pub form_problems: Vec<String>,
     pub flag: bool,
 }
 
@@ -173,13 +201,16 @@ pub fn check_support(cards: &[DraftCard], chunks: &[Chunk], answer_threshold: f6
             .into_iter()
             .filter(|a| !a.is_empty() && fuzzy_in(a, &haystack) < answer_threshold)
             .collect();
+        // The cloze text field.
+        let problems = form_problems(card.fields.values().next().and_then(Value::as_str).unwrap_or(""));
         out.push(CardSupport {
             card_id: card.id.clone(),
             best_page,
             term_support: round_to(best, 3),
             cited_pages: refs,
-            flag: !missing.is_empty() || best < 0.5,
+            flag: !missing.is_empty() || best < 0.5 || !problems.is_empty(),
             answers_not_in_source: missing.into_iter().take(10).collect(),
+            form_problems: problems,
         });
     }
     SupportReport {

@@ -62,7 +62,7 @@ $('match').addEventListener('click', () => busy($('match'), async () => {
       unsuspendConcepts: $('concepts').checked,
     } });
     const s = report.summary;
-    $('summary').textContent = `${s.chunks} chunks: ${s.covered} covered, ${s.related} related, ${s.gap} gaps. ` +
+    $('summary').textContent = `${s.chunks} chunks: ${s.covered} covered, ${s.related} related, ${s.gap} gaps, ${s.conflict || 0} conflicts. ` +
       `${s.cards_to_unsuspend} suspended cards on ${s.notes_to_unsuspend} notes to unsuspend.`;
     $('unsuspend').value = report.unsuspend.card_ids.join(', ');
     const body = $('chunks');

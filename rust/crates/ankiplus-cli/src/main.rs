@@ -202,8 +202,8 @@ fn run_match_cmd(a: MatchArgs) -> Result<(), Error> {
     let report = run_match(&index, &chunks, &name, &thresholds, &opts, &out)?;
     let s = &report.summary;
     println!(
-        "{} chunks: {} covered, {} related, {} gaps; {} suspended cards to unsuspend -> {}",
-        s.chunks, s.covered, s.related, s.gap, s.cards_to_unsuspend, out.display()
+        "{} chunks: {} covered, {} related, {} gaps, {} conflicts; {} suspended cards to unsuspend -> {}",
+        s.chunks, s.covered, s.related, s.gap, s.conflict, s.cards_to_unsuspend, out.display()
     );
     Ok(())
 }
