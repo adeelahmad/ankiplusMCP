@@ -4,7 +4,7 @@ These test builds are not signed yet, so macOS and Windows ask once before they 
 
 ## Before you start
 
-- macOS 13.4 (Ventura) or later, or Windows 10/11.
+- An Apple Silicon Mac with macOS 13.4 (Ventura) or later, or Windows 10/11 (64-bit).
 - Anki is installed and you have opened it at least once.
 - Claude Desktop is installed and you are signed in (https://claude.ai/download).
 - Card writing goes through the AnkiMCP add-on in Anki, which needs to be installed in Anki as before.
@@ -17,8 +17,8 @@ These test builds are not signed yet, so macOS and Windows ask once before they 
 3. On macOS 15 or later, if there is no Open button: open **System Settings → Privacy & Security**,
    scroll down to "AnkiPlus was blocked", click **Open Anyway** and enter your password.
 
-Pick `AppleSilicon` for M1/M2/M3/M4 Macs and `Intel` for older ones. To check, open the Apple menu →
-About This Mac and look for "Chip: Apple" or "Processor: Intel".
+This build is for Apple Silicon Macs (M1 or newer). To check, open the Apple menu → About This Mac and
+look for "Chip: Apple". Intel Macs are not supported yet.
 
 ## Windows
 

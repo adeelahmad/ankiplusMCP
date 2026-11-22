@@ -35,10 +35,10 @@ jobs:
       matrix:
         include:
           - { os: macos-latest, target: aarch64-apple-darwin, bundle: dmg, uv: uv-aarch64-apple-darwin.tar.gz, name: AnkiPlus-macOS-AppleSilicon, features: "embed,pdf" }
-          - { os: macos-latest, target: x86_64-apple-darwin, bundle: dmg, uv: uv-x86_64-apple-darwin.tar.gz, name: AnkiPlus-macOS-Intel, features: pdf }
           - { os: windows-latest, target: x86_64-pc-windows-msvc, bundle: nsis, uv: uv-x86_64-pc-windows-msvc.zip, name: AnkiPlus-Windows, features: "embed,pdf" }
-    # ONNX Runtime has no prebuilt x86_64 macOS binaries, so the Intel app indexes with
-    # keyword search; the MCP server in Claude still uses embeddings there.
+    # No Intel Mac build: ONNX Runtime ships no x86_64 macOS binaries, and current
+    # cryptography/pymupdf wheels for the server are arm64-only on macOS, so the server
+    # would have to compile from source on the student's Mac.
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -75,19 +75,21 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           dmg=$(find ../../target/${{ matrix.target }}/release/bundle/dmg -name '*.dmg' | head -1)
-          if [ "${{ matrix.target }}" = x86_64-apple-darwin ]; then softwareupdate --install-rosetta --agree-to-license || true; fi
           hdiutil attach -nobrowse -mountpoint /tmp/ankiplus "$dmg"
           app=$(find /tmp/ankiplus -maxdepth 1 -name '*.app' | head -1)
           ls -l "$app/Contents/MacOS"
           codesign -dv "$app" 2>&1 | head -5 || true
           main=$(find "$app/Contents/MacOS" -type f -perm -u+x ! -name 'uv*' | head -1)
-          arch -${{ matrix.target == 'x86_64-apple-darwin' && 'x86_64' || 'arm64' }} "$main" --self-test "$GITHUB_WORKSPACE/tests/fixtures/match/synthetic_anking.json" /tmp/self-test.json
+          "$main" --self-test "$GITHUB_WORKSPACE/tests/fixtures/match/synthetic_anking.json" /tmp/self-test.json
           cat /tmp/self-test.json
           uv="$app/Contents/MacOS/uv"
           python3 -c "import json,sys; r=json.load(open('/tmp/self-test.json')); sys.exit(0 if r['ok'] and r['uv_path'].endswith('Contents/MacOS/uv') else 1)"
           spec=$(python3 -c "import json; print(json.load(open('/tmp/self-test.json'))['server_spec'])")
           py=$(python3 -c "import json; print(json.load(open('/tmp/self-test.json'))['python'])")
-          "$uv" tool run --python "$py" --from "$spec" ankiplusmcp doctor --json
+          # doctor exits non-zero when an optional tool (e.g. tesseract) is missing; required ones must be ok.
+          "$uv" tool run --python "$py" --from "$spec" ankiplusmcp doctor --json > /tmp/doctor.json || true
+          cat /tmp/doctor.json
+          python3 -c "import json,sys; d=json.load(open('/tmp/doctor.json')); bad=[c['name'] for c in d['checks'] if c['required'] and c['status']!='ok']; print('required missing:', bad); sys.exit(1 if bad else 0)"
           hdiutil detach /tmp/ankiplus
       - name: Test the installed app (Windows)
         if: runner.os == 'Windows'
@@ -103,7 +105,9 @@ jobs:
           python -c "import json,sys; r=json.load(open(r'$RUNNER_TEMP/self-test.json')); sys.exit(0 if r['ok'] and r['uv_path'] else 1)"
           spec=$(python -c "import json; print(json.load(open(r'$RUNNER_TEMP/self-test.json'))['server_spec'])")
           py=$(python -c "import json; print(json.load(open(r'$RUNNER_TEMP/self-test.json'))['python'])")
-          "$dir/uv.exe" tool run --python "$py" --from "$spec" ankiplusmcp doctor --json
+          "$dir/uv.exe" tool run --python "$py" --from "$spec" ankiplusmcp doctor --json > "$RUNNER_TEMP/doctor.json" || true
+          cat "$RUNNER_TEMP/doctor.json"
+          python -c "import json,sys; d=json.load(open(r'$RUNNER_TEMP/doctor.json')); bad=[c['name'] for c in d['checks'] if c['required'] and c['status']!='ok']; print('required missing:', bad); sys.exit(1 if bad else 0)"
       - name: Collect
         run: |
           mkdir -p ../../../dist-installer
