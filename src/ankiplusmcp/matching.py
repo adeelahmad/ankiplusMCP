@@ -51,7 +51,7 @@ class Matching:
     def index_deck(self, workspace, deck_path, name='anking', deck_prefix=None, fields=None, embeddings='auto', model=None, backend='auto'):
         """Build (or rebuild) a named index from a deck export. Runs as a job hosted by ``workspace``."""
         self.store.get(workspace)
-        backend = self._backend(backend)
+        requested, backend = backend, self._backend(backend)
         source = self._deck_file(deck_path)
         folder = self._index_dir(name)
 
@@ -73,13 +73,21 @@ class Matching:
                                     meta={'name': name, 'source': source.name, 'deck_prefix': deck_prefix, 'fields': fields})
             index.embed_all(progress=lambda done, total: report(f'embedding {done}/{total}'))
             if cancel(): raise DomainError('CANCELLED', 'Cancelled.')
-            meta = index.save(folder, self._index_store(name, backend))
+            used, note = backend, None
+            try:
+                meta = index.save(folder, self._index_store(name, backend))
+            except Exception as exc:
+                # 'auto' must still give the student an index: the file store matches identically.
+                if requested != 'auto' or backend != 'postgres':
+                    raise
+                used, note = 'file', f'Embedded Postgres failed ({str(exc).splitlines()[0]}); saved as files instead.'
+                meta = index.save(folder, self._index_store(name, 'file'))
             # The folder's meta.json is the registry entry for every backend.
             folder.mkdir(parents=True, exist_ok=True)
-            (folder / 'meta.json').write_text(json.dumps(dict(meta, backend=backend), indent=2, ensure_ascii=False) + '\n')
+            (folder / 'meta.json').write_text(json.dumps(dict(meta, backend=used), indent=2, ensure_ascii=False) + '\n')
             self.__dict__.get('_indexes', {}).pop(name, None)
-            return {'index': name, 'backend': backend, **{k: meta[k] for k in ('notes', 'suspended_cards', 'embeddings')},
-                    'embedding_model': meta.get('embedding_model')}
+            return {'index': name, 'backend': used, **{k: meta[k] for k in ('notes', 'suspended_cards', 'embeddings')},
+                    'embedding_model': meta.get('embedding_model'), **({'warning': note} if note else {})}
         return self.jobs.submit(workspace, 'index_deck', run)
 
     def list_indexes(self):

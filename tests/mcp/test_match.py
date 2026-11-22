@@ -332,3 +332,31 @@ def test_schema18_collection_with_unicase_indexes(tmp_path):
     db.commit(); db.close()
     notes = match.load_deck(path)
     assert notes[0]['fields']['Text'].startswith('The buccinator') and notes[0]['front'] == 'The buccinator is the muscle of the cheek'
+
+
+def test_auto_backend_falls_back_to_files_when_postgres_breaks(tmp_path, deck, monkeypatch):
+    import psycopg
+    def broken(self, index):
+        raise psycopg.OperationalError('server closed the connection unexpectedly')
+    monkeypatch.setattr(pgstore, 'available', lambda: True)
+    monkeypatch.setattr(pgstore.PostgresIndexStore, 'save', broken)
+    s = Service(tmp_path / 'work', [tmp_path])
+    try:
+        w = s.store.create('lecture', text='# Plexus\n- Erb palsy injures the upper trunk C5-C6 of the brachial plexus\n')['id']
+        built = wait(s, w, s.index_deck(w, str(deck), name='anking', deck_prefix='AnKing', embeddings='off'))
+        assert built['backend'] == 'file' and 'Postgres failed' in built['warning']
+        assert s.match_source(w, 'anking')['summary']['covered'] == 1
+    finally:
+        s.close()
+
+
+def test_postgres_errors_carry_the_server_log(tmp_path, monkeypatch):
+    import psycopg
+    log = tmp_path / 'log'
+    log.write_text('LOG:  server process (PID 42) was terminated by signal 4: Illegal instruction\n')
+    monkeypatch.setattr(pgstore, 'server', lambda data_dir: type('S', (), {'log': log})())
+    store = pgstore.PostgresIndexStore(tmp_path / 'pg', 'x')
+    monkeypatch.setattr(store, '_save', lambda index: (_ for _ in ()).throw(psycopg.OperationalError('closed')))
+    with pytest.raises(psycopg.OperationalError) as info:
+        store.save(None)
+    assert 'signal 4' in '\n'.join(info.value.__notes__)
