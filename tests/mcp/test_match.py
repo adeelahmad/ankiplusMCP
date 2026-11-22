@@ -220,3 +220,33 @@ def test_synthetic_benchmark_bm25_no_wrong_unsuspends():
     row = next(r for r in bench.sweep(index, labels) if r['covered'] == .35)
     assert row['wrong_unsuspends'] == 0 and row['recall'] >= .85
     assert match.evaluate(index, labels)['recall_at_k'] >= .9
+
+
+def test_highlights_read_from_pdf_annotations(tmp_path, deck):
+    import pymupdf
+    pdf = tmp_path / 'highlighted.pdf'
+    with pymupdf.open() as doc:
+        page = doc.new_page()
+        page.insert_text((50, 80), 'Erb palsy injures the upper trunk C5-C6 of the brachial plexus', fontsize=11)
+        page.insert_text((50, 120), 'This sentence is not highlighted and should be ignored entirely', fontsize=11)
+        page.insert_text((50, 160), 'Klumpke palsy injures the lower trunk C8-T1 causing claw hand', fontsize=11)
+        for needle, note in [('Erb palsy injures the upper trunk C5-C6 of the brachial plexus', 'exam'),
+                             ('Klumpke palsy injures the lower trunk C8-T1 causing claw hand', '')]:
+            annot = page.add_highlight_annot(page.search_for(needle))
+            annot.set_info(content=note); annot.update()
+        page.add_rect_annot(pymupdf.Rect(300, 300, 400, 400))
+        doc.save(pdf)
+    found = match.highlights_from_pdf(pdf)
+    texts = [h['text'] for h in found if h['kind'] == 'text']
+    assert texts == ['Erb palsy injures the upper trunk C5-C6 of the brachial plexus',
+                     'Klumpke palsy injures the lower trunk C8-T1 causing claw hand']
+    assert found[0]['note'] == 'exam' and any(h['kind'] == 'region' for h in found)
+    s = Service(tmp_path / 'work', [tmp_path])
+    try:
+        w = s.store.create('lecture', source_path=str(pdf))['id']
+        wait(s, w, s.index_deck(w, str(deck), deck_prefix='AnKing', embeddings='off', backend='file'))
+        result = s.match_source(w, 'anking', pdf_highlights=True)
+        assert result['chunk_origin'] == 'pdf_highlights' and result['summary']['chunks'] == 2
+        assert result['summary']['covered'] == 2
+    finally:
+        s.close()

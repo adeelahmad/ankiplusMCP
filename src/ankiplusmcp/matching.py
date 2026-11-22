@@ -104,7 +104,20 @@ class Matching:
             cache[name] = (stamp, match.DeckIndex.load(folder, embedder=embedder, store=store))
         return cache[name][1]
 
-    def _chunks(self, workspace, highlights):
+    def read_highlights(self, workspace):
+        manifest = self.store.get(workspace)
+        path = Path(manifest['source']['path']) if manifest['source'] else None
+        if not path or path.suffix != '.pdf':
+            raise DomainError('SOURCE', 'Highlights are read from a PDF source.', 'Create the workspace from the highlighted PDF.')
+        found = match.highlights_from_pdf(path)
+        return {'highlights': found, 'count': len(found), 'text_highlights': sum(h['kind'] == 'text' for h in found)}
+
+    def _chunks(self, workspace, highlights, pdf_highlights=False):
+        if pdf_highlights:
+            found = self.read_highlights(workspace)['highlights']
+            if not any(h['kind'] == 'text' for h in found):
+                raise DomainError('SOURCE', 'The PDF has no text highlights.', 'Highlight the facts to card in a PDF viewer, save, and recreate the workspace.')
+            return match.chunks_from_highlights(found), 'pdf_highlights'
         if highlights:
             return match.chunks_from_highlights(highlights), 'highlights'
         manifest = self.store.get(workspace)
@@ -126,9 +139,9 @@ class Matching:
         return match.chunks_from_text(path.read_text(encoding='utf-8', errors='replace')), 'text'
 
     def match_source(self, workspace, index='anking', highlights=None, covered=None, related=None,
-                     per_chunk=3, expand_concepts=True, unsuspend_concepts=False):
+                     per_chunk=3, expand_concepts=True, unsuspend_concepts=False, pdf_highlights=False):
         deck = self._load_index(index)
-        chunks, origin = self._chunks(workspace, highlights)
+        chunks, origin = self._chunks(workspace, highlights, pdf_highlights)
         if not chunks:
             raise DomainError('SOURCE', 'No text chunks found in the source.', 'Run extract_source for scanned PDFs (OCR), or pass highlights.')
         thresholds = match.Thresholds(covered=covered, related=related, per_chunk=per_chunk)

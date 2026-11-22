@@ -51,6 +51,7 @@ def main(argv=None):
     src.add_argument('--text')
     src.add_argument('--highlights', help='JSON list of {page, text, note}')
     src.add_argument('--evaluate', metavar='LABELS', help='JSON list of {text, note_ids}; prints recall and gap precision')
+    p.add_argument('--highlighted', action='store_true', help='with --pdf: use only the text highlighted in the PDF')
     p.add_argument('--out', help='output folder (report.json, unsuspend.json, prompt.md)')
     p.add_argument('--index-dir', default=str(Path.home() / '.cache' / 'ankiplusmcp' / 'indexes'))
     p.add_argument('--backend', choices=['file', 'postgres'], default='file')
@@ -66,7 +67,10 @@ def main(argv=None):
             return 0
         if not args.out:
             p.error('--out is required unless --evaluate is used')
-        if args.pdf:
+        if args.pdf and args.highlighted:
+            from .chunks import highlights_from_pdf
+            chunks, name = chunks_from_highlights(highlights_from_pdf(args.pdf)), Path(args.pdf).name
+        elif args.pdf:
             chunks, name = chunks_from_pdf(args.pdf), Path(args.pdf).name
         elif args.text:
             chunks, name = chunks_from_text(Path(args.text).read_text()), Path(args.text).name

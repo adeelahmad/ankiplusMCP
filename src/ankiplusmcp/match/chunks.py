@@ -141,9 +141,69 @@ def chunks_from_highlights(highlights):
     """
     out = []
     for i, item in enumerate(highlights, start=1):
+        if item.get('kind') == 'region' and not item.get('text'):
+            continue   # a box over a figure: no text to match
         text = ' '.join(_lines(item.get('text', '')))
         if not text:
             continue
         page = int(item.get('page') or 0)
         out.append({'id': f'h{i}', 'page': page, 'title': item.get('note', '') or '', 'text': text})
     return out
+
+
+MARKUPS = ('Highlight', 'Underline', 'Squiggly')
+
+
+def highlights_from_pdf(path, ocr=True):
+    """Read highlights the student made in any PDF viewer (Preview, Acrobat, Zotero, ...).
+
+    Returns ``[{'page', 'text', 'note', 'color', 'rect'}]`` in reading order. Text comes from
+    the page under each highlighted line (OCR of that region when the text layer is broken);
+    a comment attached to the highlight becomes ``note``. Boxes drawn over figures (Square
+    annotations) are returned with ``kind='region'`` so figure tools can use them.
+    """
+    import pymupdf
+    out = []
+    with pymupdf.open(path) as pdf:
+        for number, page in enumerate(pdf, start=1):
+            broken = None
+            for annot in page.annots() or []:
+                kind = annot.type[1]
+                info = annot.info or {}
+                note = (info.get('content') or '').strip()
+                color = (annot.colors or {}).get('stroke')
+                if kind in MARKUPS:
+                    vertices = annot.vertices or []
+                    rects = [pymupdf.Quad(vertices[i:i + 4]).rect for i in range(0, len(vertices) - 3, 4)] or [annot.rect]
+                    parts = [page.get_textbox(r + (-1, -1, 1, 1)).strip() for r in rects]
+                    text = ' '.join(p for p in parts if p)
+                    if ocr and looks_garbled(text):
+                        if broken is None:
+                            broken = looks_garbled(page.get_text())
+                        if broken:
+                            text = ' '.join(_ocr_clip(page, r) for r in rects).strip()
+                    if text:
+                        out.append({'page': number, 'text': ' '.join(text.split()), 'note': note, 'kind': 'text',
+                                    'color': color, 'rect': [round(v, 1) for v in annot.rect], '_y': annot.rect.y0})
+                elif kind == 'Square':
+                    r = annot.rect
+                    out.append({'page': number, 'text': note or '', 'note': note, 'kind': 'region', 'color': color,
+                                'rect': [round(v, 1) for v in r],
+                                'region': {'left': r.x0 / page.rect.width, 'top': r.y0 / page.rect.height,
+                                           'width': r.width / page.rect.width, 'height': r.height / page.rect.height},
+                                '_y': r.y0})
+    out.sort(key=lambda h: (h['page'], h.pop('_y')))
+    return out
+
+
+def _ocr_clip(page, rect, zoom=4):
+    import shutil, subprocess, tempfile, os
+    import pymupdf
+    if not shutil.which('tesseract'):
+        return ''
+    pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), clip=rect + (-2, -2, 2, 2), alpha=False)
+    with tempfile.TemporaryDirectory() as tmp:
+        image = os.path.join(tmp, 'clip.png')
+        pix.save(image)
+        run = subprocess.run(['tesseract', image, 'stdout', '--psm', '7', '-l', 'eng'], capture_output=True, text=True, timeout=60)
+    return run.stdout.strip() if run.returncode == 0 else ''

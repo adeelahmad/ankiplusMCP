@@ -10,10 +10,10 @@ and a drafting prompt that lists only the gaps.
 """
 from .deck import load_deck, clean_text
 from .index import DeckIndex, tokenize
-from .chunks import chunks_from_slides, chunks_from_pdf, chunks_from_text, chunks_from_highlights
+from .chunks import chunks_from_slides, chunks_from_pdf, chunks_from_text, chunks_from_highlights, highlights_from_pdf
 from .matcher import match_chunks, Thresholds
 from .prompt import build_prompt
 from .evaluate import evaluate
 
 __all__ = ['load_deck', 'clean_text', 'DeckIndex', 'tokenize', 'chunks_from_slides', 'chunks_from_pdf',
-           'chunks_from_text', 'chunks_from_highlights', 'match_chunks', 'Thresholds', 'build_prompt', 'evaluate']
+           'chunks_from_text', 'chunks_from_highlights', 'highlights_from_pdf', 'match_chunks', 'Thresholds', 'build_prompt', 'evaluate']

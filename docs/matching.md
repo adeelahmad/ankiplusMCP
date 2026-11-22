@@ -67,6 +67,20 @@ tags with more than 150 notes are ignored. Neighbours are only unsuspended with
 **Nothing is changed in Anki.** Show `unsuspend.json` to the user, then unsuspend those CARD ids
 through the Anki MCP.
 
+## Highlights: card only what the student marked
+
+For textbooks and long PDFs, let the student choose. They highlight the facts in any PDF viewer
+(Preview, Acrobat, Zotero, Edge), save, and AnkiPlus reads the highlights straight from the file:
+
+```
+match_source {"workspace":"W","index":"anking","pdf_highlights":true}
+ankiplusmcp match --deck AnKing.apkg --pdf chapter5.pdf --highlighted --out builds/ch5
+```
+
+Each highlight becomes one chunk, kept whole. A comment attached to a highlight is kept as its
+note, and boxes drawn over figures come back as regions (`read_highlights`) for image occlusion.
+Highlights on a page with a broken text layer are OCR'd.
+
 ## 4. Check drafted cards
 
 `check_source_support` flags cards whose cloze answers do not appear in the source, or whose
