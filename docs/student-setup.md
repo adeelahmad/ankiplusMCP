@@ -4,7 +4,21 @@
 
 You need: Anki with the AnkiConnect-based **Anki MCP**, and an AI app such as **Claude Desktop**.
 
-## 1. Run one command
+## 1. Install
+
+**Easiest: the desktop app.** Download it from the
+[releases page](https://github.com/adeelahmad/ankiplusMCP/releases) (`.pkg` or `.dmg` for an Apple Silicon Mac,
+`-setup.exe` for Windows). The builds are unsigned, so the first open needs **Open Anyway** (Mac) or
+**More info → Run anyway** (Windows). See [installing the desktop app](../rust/docs/install-unsigned.md).
+On a Mac, this one line installs it with no prompts:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/adeelahmad/ankiplusMCP/main/scripts/install-desktop.sh | sh
+```
+
+The app walks you through picking your deck, indexing it and connecting Claude Desktop. Then skip to step 3.
+
+**Or run one command (no app):**
 
 **Mac or Linux:** open Terminal and paste:
 

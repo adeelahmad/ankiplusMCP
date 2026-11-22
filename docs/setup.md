@@ -157,6 +157,8 @@ If you ship software that includes it, read its terms.
 
 | Symptom | What to do |
 | --- | --- |
+| Mac: "AnkiPlus is damaged" or "cannot be opened" (desktop app) | The build is unsigned. Use **Open Anyway** in System Settings → Privacy & Security, or run `xattr -dr com.apple.quarantine /Applications/AnkiPlus.app`. The `.pkg` and `install-desktop.sh` clear this for you. |
+| Server fails to install onnxruntime | Use `release-v0.5.3` or newer, which runs on Python 3.13 (Python 3.15 has no onnxruntime wheels). |
 | `uv` is missing | Install uv, restart the host so its PATH is refreshed, then run `doctor`. The launcher also checks uv's standard per-user install location. |
 | Source is outside readable roots | Register or launch with `--source-root` for its parent directory; use an absolute file path. |
 | No tools after registration | Restart/reconnect your AI host, check its MCP logs, and run `doctor`. The server uses stdio; there is no URL or port to open. |
