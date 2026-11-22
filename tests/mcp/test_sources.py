@@ -7,10 +7,12 @@ from ankiplusmcp.service import Service
 from ankiplusmcp.store import DomainError
 
 
-def wait(service, w, job):
-    for _ in range(300):
+def wait(service, w, job, timeout=60):
+    # A cold browser start on a CI runner can take well over the old 6 s budget.
+    deadline = time.monotonic() + timeout
+    while True:
         result = service.jobs.get(w, job['id'])
-        if result['status'] not in ('queued','running'): break
+        if result['status'] not in ('queued','running') or time.monotonic() > deadline: break
         time.sleep(.02)
     assert result['status'] == 'completed', result
     return result['result']
