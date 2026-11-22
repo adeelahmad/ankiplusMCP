@@ -273,3 +273,21 @@ def test_unsuspend_preview_approve_and_log(tmp_path, deck):
         assert s.prepare_unsuspend(w2)['card_ids'] == [1006]
     finally:
         s.close()
+
+
+def test_deck_size_limit_allows_big_apkg(tmp_path, monkeypatch):
+    from ankiplusmcp import matching
+    from ankiplusmcp.store import DomainError
+    s = Service(tmp_path / 'work', [tmp_path])
+    try:
+        apkg, jsn = tmp_path / 'AnKing.apkg', tmp_path / 'notes.json'
+        apkg.write_bytes(b'x' * 10); jsn.write_bytes(b'x' * 10)
+        monkeypatch.setattr(matching, 'MAX_DECK', 5)
+        assert s._deck_file(str(apkg)) == apkg.resolve()
+        with pytest.raises(DomainError):
+            s._deck_file(str(jsn))
+        monkeypatch.setattr(matching, 'MAX_ARCHIVE', 5)
+        with pytest.raises(DomainError):
+            s._deck_file(str(apkg))
+    finally:
+        s.close()
