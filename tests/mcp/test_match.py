@@ -175,3 +175,13 @@ def test_cli(tmp_path, deck, capsys):
                  '--index-dir', str(tmp_path / 'idx'), '--embeddings', 'off'])
     assert code == 0 and '1 covered' in capsys.readouterr().out
     assert json.loads((tmp_path / 'out' / 'unsuspend.json').read_text())['card_ids'] == [1004, 1005]
+
+
+@pytest.mark.skipif(not __import__('os').environ.get('ANKIPLUS_REAL_EMBEDDINGS'), reason='set ANKIPLUS_REAL_EMBEDDINGS=1 to download and run the Nomic ONNX model')
+def test_real_nomic_embeddings_find_paraphrases(deck):
+    from ankiplusmcp.match.index import get_embedder
+    index = match.DeckIndex(match.load_deck(deck, deck_prefix='AnKing'), embedder=get_embedder('required'))
+    index.embed_all()
+    assert index.vectors.shape == (5, 256)
+    hit = index.search('cardiac enzyme elevated after a heart attack')[0]   # no shared words with note 105
+    assert index.notes[hit['doc']]['note_id'] == 105 and hit['overlap'] == 0 and hit['cosine'] > .55
