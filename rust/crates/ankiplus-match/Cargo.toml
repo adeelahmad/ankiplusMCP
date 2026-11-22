@@ -1,0 +1,38 @@
+[package]
+name = "ankiplus-match"
+description = "Deterministic matching of lecture content against an existing Anki deck (Rust port of ankiplusmcp.match)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[features]
+default = []
+# Local ONNX embeddings (nomic-embed-text-v1.5) through fastembed-rs.
+embed = ["dep:fastembed"]
+# Embedded Postgres + pgvector index store.
+postgres = ["dep:postgresql_embedded", "dep:postgresql_extensions", "dep:postgres"]
+# PDF text extraction through docling.rs (text layer only, no ML models).
+pdf = ["dep:docling"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror = "2"
+regex = "1"
+fancy-regex = "0.14"
+indexmap = { version = "2", features = ["serde"] }
+htmlize = { version = "1", features = ["unescape"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+zstd = "0.13"
+flate2 = "1"
+half = "2"
+tempfile = "3"
+sha2 = "0.10"
+
+fastembed = { version = "7.8", optional = true, default-features = false, features = ["onnx", "ort-download-binaries-rustls-tls", "hf-hub-rustls-tls", "onig"] }
+postgresql_embedded = { version = "0.22", optional = true, features = ["blocking"] }
+postgresql_extensions = { version = "0.22", optional = true, default-features = false, features = ["blocking", "portal-corp", "tls-rustls-ring"] }
+postgres = { version = "0.19", optional = true }
+docling = { version = "2.86", optional = true, default-features = false, features = ["pdf-text"] }
