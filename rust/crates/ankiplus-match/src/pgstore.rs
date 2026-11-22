@@ -47,6 +47,25 @@ fn password(dir: &Path) -> Result<String, Error> {
     Ok(p)
 }
 
+/// The prebuilt x86-64 pgvector packages are compiled for AVX-512 (EVEX instructions even
+/// in the default distance functions), so their backend dies with SIGILL on CPUs without
+/// it (Intel Core 12th-14th gen, AMD before Zen 4, most Intel Macs). Same guard as the
+/// Python `pgstore.available()`.
+pub fn cpu_supports_bundled_pgvector() -> bool {
+    #[cfg(target_arch = "x86_64")]
+    {
+        std::arch::is_x86_feature_detected!("avx512f")
+            && std::arch::is_x86_feature_detected!("avx512vl")
+            && std::arch::is_x86_feature_detected!("avx512bw")
+            && std::arch::is_x86_feature_detected!("avx512dq")
+            && std::arch::is_x86_feature_detected!("avx512vpopcntdq")
+    }
+    #[cfg(not(target_arch = "x86_64"))]
+    {
+        true
+    }
+}
+
 /// One embedded server per data folder, started on first use; returns its database URL.
 ///
 /// `ANKIPLUS_PG_URL` points at an existing server with pgvector instead (for example
@@ -56,6 +75,13 @@ pub fn server_url(data_dir: &Path) -> Result<String, Error> {
         if !url.is_empty() {
             return Ok(url);
         }
+    }
+    if !cpu_supports_bundled_pgvector() {
+        return Err(Error::Index(
+            "Embedded Postgres is off on this CPU: the bundled pgvector needs AVX-512 and would crash. \
+             Use the file store, or set ANKIPLUS_PG_URL to a server with pgvector."
+                .into(),
+        ));
     }
     std::fs::create_dir_all(data_dir)?;
     let key = std::fs::canonicalize(data_dir)?;
