@@ -1,0 +1,27 @@
+[package]
+name = "ankiplus-desktop"
+description = "AnkiPlus desktop app (Tauri): match lectures against AnKing without AI"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "ankiplus_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[features]
+default = []
+embed = ["ankiplus-match/embed"]
+postgres = ["ankiplus-match/postgres"]
+pdf = ["ankiplus-match/pdf"]
+full = ["embed", "postgres", "pdf"]
+
+[dependencies]
+ankiplus-match.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tauri = { version = "2", features = [] }
