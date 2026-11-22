@@ -11,6 +11,9 @@ use fastembed::{EmbeddingModel, TextEmbedding, TextInitOptions};
 use std::sync::Mutex;
 
 pub const DEFAULT_MODEL: &str = "nomic-ai/nomic-embed-text-v1.5";
+/// Long AnKing Extras would pad a batch to the 8k context: embed the first ~200 tokens.
+pub const MAX_CHARS: usize = 800;
+const BATCH: usize = 16;
 
 pub struct FastEmbedder {
     model_name: String,
@@ -38,11 +41,12 @@ impl FastEmbedder {
     }
 
     fn encode(&self, texts: Vec<String>) -> Result<Vec<Vec<f32>>, Error> {
+        let texts: Vec<String> = texts.iter().map(|t| crate::text::take_chars(t, MAX_CHARS)).collect();
         let raw = self
             .model
             .lock()
             .map_err(|_| Error::Embed("embedding model lock poisoned".into()))?
-            .embed(&texts, None)
+            .embed(&texts, Some(BATCH))
             .map_err(|e| Error::Embed(e.to_string()))?;
         Ok(raw.into_iter().map(|v| self.post(v)).collect())
     }

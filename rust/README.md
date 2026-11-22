@@ -18,7 +18,7 @@ rust/
 |---|---|---|
 | Deck loading (.apkg incl. zstd `anki21b`, .colpkg, .anki2, JSON/JSONL) | `deck.py` | `deck.rs` |
 | HTML/cloze cleaning, tokenizer, stopwords, stemming | `deck.py`, `index.py` | `text.rs` |
-| BM25 + embeddings, reciprocal rank fusion (k = 60) | `index.py` | `index.rs` |
+| BM25 + embeddings, two-way lexical score on the front field, reciprocal rank fusion (k = 60) | `index.py` | `index.rs` |
 | Chunking (line re-joining, inline/OCR bullets, captions, repeated headers dropped) | `chunks.py` | `chunks.rs` |
 | PDF text, garbled-layer detection, tesseract OCR fallback | `chunks.py` (PyMuPDF) | `pdf.rs` (docling.rs + `pdftoppm`) |
 | covered / related / gap, unsuspend list, concept mapping via AnKing tags | `matcher.py` | `matcher.rs` |

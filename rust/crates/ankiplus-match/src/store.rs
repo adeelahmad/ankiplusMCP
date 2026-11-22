@@ -12,7 +12,7 @@ use serde_json::{Map, Value};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 
-pub const FORMAT: i64 = 1;
+pub const FORMAT: i64 = 2;
 
 pub trait IndexStore {
     fn save(&self, index: &DeckIndex) -> Result<Map<String, Value>, Error>;

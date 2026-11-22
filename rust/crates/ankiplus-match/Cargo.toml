@@ -23,7 +23,7 @@ regex = "1"
 fancy-regex = "0.14"
 indexmap = { version = "2", features = ["serde"] }
 htmlize = { version = "1", features = ["unescape"] }
-rusqlite = { version = "0.37", features = ["bundled"] }
+rusqlite = { version = "0.37", features = ["bundled", "collation"] }
 zip = { version = "2", default-features = false, features = ["deflate"] }
 zstd = "0.13"
 flate2 = "1"

@@ -192,7 +192,7 @@ fn cache_key_matches_python_format() {
 #[test]
 fn threshold_defaults_follow_the_index_mode() {
     let t = Thresholds::default();
-    assert_eq!((t.resolve(false).covered, t.resolve(false).related), (Some(0.35), Some(0.2)));
+    assert_eq!((t.resolve(false).covered, t.resolve(false).related), (Some(0.5), Some(0.35)));
     assert_eq!((t.resolve(true).covered, t.resolve(true).related), (Some(0.55), Some(0.4)));
     assert_eq!(Thresholds { covered: Some(0.7), ..Default::default() }.resolve(true).covered, Some(0.7));
 }
@@ -204,4 +204,63 @@ fn synthetic_benchmark_recall() {
     let index = DeckIndex::new(notes, None, Default::default());
     let labels: Vec<Label> = serde_json::from_str(&std::fs::read_to_string(root.join("labels.json")).unwrap()).unwrap();
     assert!(evaluate(&index, &labels, 5, None).unwrap().recall_at_k.unwrap() >= 0.9);
+}
+
+fn note(id: i64, front: &str, text: &str, suspended: bool) -> Note {
+    Note {
+        note_id: id,
+        card_ids: if suspended { vec![id + 10] } else { vec![] },
+        suspended_card_ids: if suspended { vec![id + 10] } else { vec![] },
+        text: text.into(),
+        front: Some(front.into()),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn score_needs_both_directions_and_real_words() {
+    let mut notes = vec![
+        note(1, "3 2 = 9", "3 2 = 9", true),
+        note(2, "The buccinator is the principal muscle of the cheek", "The buccinator is the principal muscle of the cheek", true),
+        note(3, "Epistaxis most often arises from Kiesselbach plexus",
+             "Epistaxis most often arises from Kiesselbach plexus\nsupplied by the labial artery of the facial artery and others", true),
+    ];
+    notes.extend((0..30).map(|i| note(100 + i, &format!("filler word{i}"), &format!("filler word{i} muscle artery"), false)));
+    let index = DeckIndex::new(notes, None, Default::default());
+    let score = |q: &str, id: i64| {
+        index.search(q, 5, 50).unwrap().iter().find(|h| index.notes[h.doc].note_id == id).map_or(0.0, |h| h.score)
+    };
+    assert!(score("3 Histology 9 2", 1) < 0.35);
+    assert!(score("Lateral wall: cheeks (buccinator muscle)", 2) >= 0.5);
+    // the note's Extra mentions the words, but its fact is about something else
+    assert!(score("Blood supply of the lips: labial arteries from the facial artery", 3) < 0.35);
+}
+
+#[test]
+fn schema18_collection_with_unicase_indexes() {
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("collection.anki2");
+    let db = Connection::open(&path).unwrap();
+    db.create_collation("unicase", |a: &str, b: &str| a.to_lowercase().cmp(&b.to_lowercase())).unwrap();
+    db.execute_batch(
+        "create table col (decks text, models text);
+         create table notes (id integer, mid integer, tags text, flds text);
+         create table cards (id integer, nid integer, did integer, queue integer);
+         create table decks (id integer, name text collate unicase);
+         create table notetypes (id integer, name text collate unicase);
+         create table fields (ntid integer, ord integer, name text collate unicase, primary key (ntid, ord)) without rowid;
+         create unique index idx_fields_name_ntid on fields (name, ntid);
+         create unique index idx_notetypes_name on notetypes (name);
+         insert into col values ('', '');
+         insert into decks values (1, 'AnKing');
+         insert into notetypes values (9, 'AnKingOverhaul');
+         insert into fields values (9, 0, 'Text'), (9, 1, 'Extra');
+         insert into notes values (5, 9, '', 'The buccinator is the muscle of the cheek' || char(31) || 'extra');
+         insert into cards values (50, 5, 1, -1);",
+    )
+    .unwrap();
+    drop(db);
+    let notes = load_deck(&path, &LoadOptions::default()).unwrap();
+    assert!(notes[0].fields["Text"].starts_with("The buccinator"));
+    assert_eq!(notes[0].front.as_deref(), Some("The buccinator is the muscle of the cheek"));
 }
