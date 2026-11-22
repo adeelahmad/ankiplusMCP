@@ -204,9 +204,9 @@ class API:
 
     def match_source(self, workspace: Workspace, index: IndexName='anking',
                      highlights: Annotated[list[Highlight],Field(max_length=2000)] | None=None,
-                     covered: Score=.6, related: Score=.35, per_chunk: Annotated[int,Field(ge=1,le=10)]=3,
+                     covered: Score | None=None, related: Score | None=None, per_chunk: Annotated[int,Field(ge=1,le=10)]=3,
                      expand_concepts: bool=True, unsuspend_concepts: bool=False) -> dict:
-        """Match the workspace source (or user highlights) against a deck index without AI. Classifies each chunk as covered/related/gap, writes report.json, an unsuspend.json of suspended CARD ids to show the user, and prompt.md listing only the gaps to draft. Performs zero Anki operations."""
+        """Match the workspace source (or user highlights) against a deck index without AI. Classifies each chunk as covered/related/gap (default thresholds calibrated per mode: BM25 0.35/0.2, with embeddings 0.55/0.4), writes report.json, an unsuspend.json of suspended CARD ids to show the user, and prompt.md listing only the gaps to draft. Performs zero Anki operations."""
         return self.s.match_source(workspace,index,[h.model_dump() for h in highlights] if highlights else None,
                                    covered,related,per_chunk,expand_concepts,unsuspend_concepts)
 
