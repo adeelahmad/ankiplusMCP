@@ -214,6 +214,18 @@ class API:
         """Read highlights/underlines (and boxes over figures) the student made in the source PDF with any viewer: page, text, attached comment, colour, rectangle."""
         return self.s.read_highlights(workspace)
 
+    def prepare_unsuspend(self, workspace: Workspace, match_id: Workspace | None=None,
+                          exclude_note_ids: Annotated[list[Annotated[int,Field(gt=0)]],Field(max_length=5000)] | None=None,
+                          offset: Offset=0, limit: Limit=50) -> dict:
+        """Preview the cards a match proposes to unsuspend: each note with the lecture lines it matched, minus cards already unsuspended. Pass exclude_note_ids for notes the user rejects. Returns the approved CARD ids for the Anki MCP; performs zero Anki operations."""
+        return self.s.prepare_unsuspend(workspace,match_id,exclude_note_ids,offset,limit)
+
+    def record_unsuspend(self, workspace: Workspace, card_ids: Annotated[list[Annotated[int,Field(gt=0)]],Field(min_length=1,max_length=5000)],
+                         status: Literal['success','failed','ambiguous'], match_id: Workspace | None=None,
+                         detail: Annotated[str,Field(max_length=500)]='') -> dict:
+        """Log the result the host got from the Anki MCP unsuspend call. Successful card IDs are never proposed again for that deck index."""
+        return self.s.record_unsuspend(workspace,card_ids,status,match_id,detail)
+
     def check_source_support(self, workspace: Workspace, ids: Ids=None) -> dict:
         """Check that saved cards are supported by the source: best page per card and cloze answers not found in the source (fuzzy). Mechanical; flags cards to look at."""
         return self.s.check_source_support(workspace,ids)

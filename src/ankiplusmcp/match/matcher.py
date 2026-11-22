@@ -37,14 +37,20 @@ def _summary(index, hit, chunk_terms=None):
     return out
 
 
-def match_chunks(index, chunks, thresholds=None, k=5, expand_concepts=True, unsuspend_concepts=False):
+def match_chunks(index, chunks, thresholds=None, k=5, expand_concepts=True, unsuspend_concepts=False, already_unsuspended=()):
+    """``already_unsuspended``: CARD ids a previous lecture already unsuspended; never proposed again."""
+    already = set(already_unsuspended)
     t = (thresholds or Thresholds()).resolve(index.vectors is not None)
     rows, unsuspend = [], {}
 
+    skipped = set()
+
     def claim(summary, chunk_id, reason):
-        if not summary['suspended_card_ids']:
+        pending = [c for c in summary['suspended_card_ids'] if c not in already]
+        skipped.update(c for c in summary['suspended_card_ids'] if c in already)
+        if not pending:
             return
-        entry = unsuspend.setdefault(summary['note_id'], {'note_id': summary['note_id'], 'card_ids': summary['suspended_card_ids'],
+        entry = unsuspend.setdefault(summary['note_id'], {'note_id': summary['note_id'], 'card_ids': pending,
                                                           'chunks': [], 'reason': reason, 'preview': summary['preview']})
         if chunk_id not in entry['chunks']:
             entry['chunks'].append(chunk_id)
@@ -86,7 +92,8 @@ def match_chunks(index, chunks, thresholds=None, k=5, expand_concepts=True, unsu
     card_ids = sorted({c for e in plan for c in e['card_ids']})
     counts = {s: sum(r['status'] == s for r in rows) for s in ('covered', 'related', 'gap')}
     return {'thresholds': asdict(t), 'embeddings': index.vectors is not None,
-            'summary': dict(counts, chunks=len(rows), notes_to_unsuspend=len(plan), cards_to_unsuspend=len(card_ids)),
+            'summary': dict(counts, chunks=len(rows), notes_to_unsuspend=len(plan), cards_to_unsuspend=len(card_ids),
+                            already_unsuspended=len(skipped)),
             'chunks': rows,
             'unsuspend': {'card_ids': card_ids, 'notes': plan, 'performed_anki_operations': 0,
                           'instructions': 'Show the user this list. After approval, unsuspend these CARD ids with the official Anki MCP.'}}
