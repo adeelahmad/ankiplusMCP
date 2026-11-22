@@ -19,6 +19,7 @@ pub mod prompt;
 pub mod quotes;
 pub mod store;
 pub mod text;
+pub mod unsuspend_log;
 
 #[cfg(feature = "embed")]
 pub mod embed;

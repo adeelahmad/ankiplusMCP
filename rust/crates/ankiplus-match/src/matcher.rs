@@ -81,6 +81,8 @@ pub struct Summary {
     pub chunks: usize,
     pub notes_to_unsuspend: usize,
     pub cards_to_unsuspend: usize,
+    /// Distinct suspended CARD ids skipped because a previous lecture already unsuspended them.
+    pub already_unsuspended: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -109,16 +111,18 @@ pub struct Report {
     pub unsuspend: Unsuspend,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct MatchOptions {
     pub k: usize,
     pub expand_concepts: bool,
     pub unsuspend_concepts: bool,
+    /// CARD ids a previous lecture already unsuspended; never proposed again.
+    pub already_unsuspended: HashSet<i64>,
 }
 
 impl Default for MatchOptions {
     fn default() -> Self {
-        Self { k: 5, expand_concepts: true, unsuspend_concepts: false }
+        Self { k: 5, expand_concepts: true, unsuspend_concepts: false, already_unsuspended: HashSet::new() }
     }
 }
 
@@ -148,13 +152,17 @@ pub fn match_chunks(
     let (covered, related) = (t.covered.unwrap(), t.related.unwrap());
     let mut rows = Vec::new();
     let mut unsuspend: IndexMap<i64, UnsuspendNote> = IndexMap::new();
+    let already = &opts.already_unsuspended;
+    let mut skipped: HashSet<i64> = HashSet::new();
     let mut claim = |s: &NoteSummary, chunk_id: &str, reason: &str| {
-        if s.suspended_card_ids.is_empty() {
+        let pending: Vec<i64> = s.suspended_card_ids.iter().copied().filter(|c| !already.contains(c)).collect();
+        skipped.extend(s.suspended_card_ids.iter().copied().filter(|c| already.contains(c)));
+        if pending.is_empty() {
             return;
         }
         let entry = unsuspend.entry(s.note_id).or_insert_with(|| UnsuspendNote {
             note_id: s.note_id,
-            card_ids: s.suspended_card_ids.clone(),
+            card_ids: pending,
             chunks: vec![],
             reason: reason.to_string(),
             preview: s.preview.clone(),
@@ -247,6 +255,7 @@ pub fn match_chunks(
         chunks: rows.len(),
         notes_to_unsuspend: plan.len(),
         cards_to_unsuspend: card_ids.len(),
+        already_unsuspended: skipped.len(),
     };
     Ok(Report {
         thresholds: *t,

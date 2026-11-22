@@ -174,6 +174,21 @@ def main():
             pycli.main(ev)
         rs = subprocess.run([args.bin, 'match', *ev], capture_output=True, text=True, check=True).stdout
         failures += [f'evaluate {e}' for e in close(json.loads(buf.getvalue()), json.loads(rs))[:5]]
+        # Cards a previous lecture already unsuspended are not proposed again.
+        from ankiplusmcp.match import DeckIndex, load_deck, match_chunks
+        first = json.loads((tmp / 'a' / 'unsuspend.json').read_text())['card_ids']
+        done = first[::2]
+        log = tmp / 'unsuspended.jsonl'
+        subprocess.run([args.bin, 'record', '--log', str(log), '--cards', ','.join(map(str, done))], check=True, capture_output=True)
+        subprocess.run([args.bin, 'record', '--log', str(log), '--cards', str(first[1]), '--status', 'failed'], check=True, capture_output=True)
+        index = DeckIndex(load_deck(deck, deck_prefix='AnKing'))
+        py_report = match_chunks(index, chunks_from_text(src.read_text()), already_unsuspended=done)
+        subprocess.run([args.bin, 'match', *base, '--out', str(tmp / 'c'), '--index-dir', str(tmp / 'shared'),
+                        '--unsuspended-log', str(log)], check=True, capture_output=True)
+        failures += [f'already_unsuspended {e}' for e in close(json.loads(json.dumps(py_report)),
+                                                               json.loads((tmp / 'c' / 'report.json').read_text()))[:5]]
+        if not py_report['summary']['already_unsuspended']:
+            failures.append('already_unsuspended case did not skip anything')
         # Calibration benchmark from tests/fixtures/match, default (calibrated) thresholds.
         fx = ROOT / 'tests' / 'fixtures' / 'match'
         ev = ['--deck', str(fx / 'synthetic_anking.json'), '--embeddings', 'off', '--evaluate', str(fx / 'labels.json'),
@@ -196,7 +211,7 @@ def main():
         print('PARITY FAILED')
         print('\n'.join(failures[:40]))
         return 1
-    print(f'parity ok: 12 lecture runs, calibration benchmark, cross-loaded cache, evaluate and quote check on {args.notes} notes')
+    print(f'parity ok: 12 lecture runs, already-unsuspended log, calibration benchmark, cross-loaded cache, evaluate and quote check on {args.notes} notes')
     return 0
 
 

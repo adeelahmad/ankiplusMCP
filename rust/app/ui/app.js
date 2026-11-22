@@ -26,6 +26,15 @@ $('index').addEventListener('click', () => busy($('index'), async () => {
   } catch (e) { status('index-status', String(e), true); }
 }));
 
+let lastCards = [];
+
+$('record').addEventListener('click', () => busy($('record'), async () => {
+  try {
+    await invoke('record_unsuspend', { cardIds: lastCards, status: 'success' });
+    status('record-status', `Logged ${lastCards.length} cards; later lectures will not propose them again.`);
+  } catch (e) { status('record-status', String(e), true); }
+}));
+
 function cell(row, text, cls) {
   const td = row.insertCell();
   td.textContent = text;
@@ -58,6 +67,7 @@ $('match').addEventListener('click', () => busy($('match'), async () => {
       cell(row, r.matches.length ? `${r.matches[0].note_id}: ${r.matches[0].preview}` : '');
     }
     $('prompt').value = prompt;
+    lastCards = report.unsuspend.card_ids;
     $('results').hidden = false;
     status('match-status', 'Done. Unsuspend the listed CARD ids through the Anki MCP after review.');
   } catch (e) { status('match-status', String(e), true); }

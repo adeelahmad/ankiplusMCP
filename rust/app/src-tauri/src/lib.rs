@@ -23,6 +23,10 @@ struct AppState {
     index: Mutex<Option<DeckIndex>>,
 }
 
+fn unsuspend_log(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app.path().app_cache_dir().map_err(|e| e.to_string())?.join("indexes").join("unsuspended.jsonl"))
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct IndexArgs {
@@ -111,12 +115,13 @@ fn index_deck(app: tauri::AppHandle, state: tauri::State<AppState>, args: IndexA
 }
 
 #[tauri::command]
-fn match_source(state: tauri::State<AppState>, args: MatchArgs) -> Result<MatchResult, String> {
+fn match_source(app: tauri::AppHandle, state: tauri::State<AppState>, args: MatchArgs) -> Result<MatchResult, String> {
     let guard = state.index.lock().map_err(|e| e.to_string())?;
     let index = guard.as_ref().ok_or("Index a deck first.")?;
     let chunks = chunks(&args.source)?;
     let t = Thresholds { covered: args.covered, related: args.related, ..Thresholds::default() };
-    let opts = MatchOptions { unsuspend_concepts: args.unsuspend_concepts, ..MatchOptions::default() };
+    let already = ankiplus_match::unsuspend_log::already_unsuspended(&unsuspend_log(&app)?);
+    let opts = MatchOptions { unsuspend_concepts: args.unsuspend_concepts, already_unsuspended: already, ..MatchOptions::default() };
     let report = match_chunks(index, &chunks, &t, &opts).map_err(|e| e.to_string())?;
     let prompt = build_prompt(&report, args.source_name.as_deref().unwrap_or("lecture"), 24000);
     Ok(MatchResult { report, prompt })
@@ -127,11 +132,18 @@ fn check_support(cards: Vec<DraftCard>, source: SourceArgs, answer_threshold: Op
     Ok(check(&cards, &chunks(&source)?, answer_threshold.unwrap_or(0.8)))
 }
 
+/// Log CARD ids the user unsuspended through the Anki MCP; later matches skip them.
+#[tauri::command]
+fn record_unsuspend(app: tauri::AppHandle, card_ids: Vec<i64>, status: String, detail: Option<String>) -> Result<serde_json::Value, String> {
+    ankiplus_match::unsuspend_log::record(&unsuspend_log(&app)?, &card_ids, &status, None, None, detail.as_deref().unwrap_or(""))
+        .map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .manage(AppState::default())
-        .invoke_handler(tauri::generate_handler![index_deck, match_source, check_support])
+        .invoke_handler(tauri::generate_handler![index_deck, match_source, check_support, record_unsuspend])
         .build(tauri::generate_context!())
         .expect("error while building the AnkiPlus app")
         .run(|_app, event| {

@@ -30,6 +30,24 @@ enum Command {
     Match(MatchArgs),
     /// Flag drafted cards whose cloze answers are not in the source.
     Check(CheckArgs),
+    /// Log CARD ids the host unsuspended, so later matches never propose them again.
+    Record(RecordArgs),
+}
+
+#[derive(Args)]
+struct RecordArgs {
+    /// unsuspended.jsonl (shared format with the Python MCP server)
+    #[arg(long)]
+    log: PathBuf,
+    /// Comma-separated CARD ids
+    #[arg(long, value_delimiter = ',', required = true)]
+    cards: Vec<i64>,
+    #[arg(long, default_value = "success")]
+    status: String,
+    #[arg(long)]
+    match_id: Option<String>,
+    #[arg(long, default_value = "")]
+    detail: String,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -95,6 +113,9 @@ struct MatchArgs {
     unsuspend_concepts: bool,
     #[arg(long)]
     rebuild: bool,
+    /// unsuspended.jsonl: CARD ids logged as unsuspended are not proposed again
+    #[arg(long)]
+    unsuspended_log: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -168,7 +189,8 @@ fn run_match_cmd(a: MatchArgs) -> Result<(), Error> {
     }
     let out = a.out.clone().ok_or_else(|| Error::Source("--out is required unless --evaluate is used".into()))?;
     let (chunks, name) = load_chunks(&a.pdf, &a.text, &a.highlights)?;
-    let opts = MatchOptions { unsuspend_concepts: a.unsuspend_concepts, ..MatchOptions::default() };
+    let already = a.unsuspended_log.as_deref().map(ankiplus_match::unsuspend_log::already_unsuspended).unwrap_or_default();
+    let opts = MatchOptions { unsuspend_concepts: a.unsuspend_concepts, already_unsuspended: already, ..MatchOptions::default() };
     let report = run_match(&index, &chunks, &name, &thresholds, &opts, &out)?;
     let s = &report.summary;
     println!(
@@ -191,6 +213,8 @@ fn main() -> ExitCode {
     let result = match cli.command {
         Command::Match(a) => run_match_cmd(a),
         Command::Check(a) => run_check(a),
+        Command::Record(a) => ankiplus_match::unsuspend_log::record(&a.log, &a.cards, &a.status, a.match_id.as_deref(), None, &a.detail)
+            .and_then(|row| Ok(println!("{}", serde_json::to_string(&row)?))),
     };
     #[cfg(feature = "postgres")]
     ankiplus_match::pgstore::shutdown();
