@@ -1,0 +1,1226 @@
+[
+ {
+  "note_id": 1,
+  "fields": {
+   "Text": "The oral cavity is divided into the {{c1::vestibule}} and the {{c2::oral cavity proper}}",
+   "Extra": "Vestibule lies between lips/cheeks and teeth"
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Oral_Cavity"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   10
+  ],
+  "suspended_card_ids": [
+   10
+  ]
+ },
+ {
+  "note_id": 2,
+  "fields": {
+   "Text": "The roof of the mouth is formed by the {{c1::hard palate}} anteriorly and the {{c2::soft palate}} posteriorly",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Oral_Cavity"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   20
+  ],
+  "suspended_card_ids": [
+   20
+  ]
+ },
+ {
+  "note_id": 3,
+  "fields": {
+   "Text": "The {{c1::mylohyoid}} muscle forms the muscular floor of the mouth (oral diaphragm)",
+   "Extra": "Geniohyoid lies above it"
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Oral_Cavity"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   30
+  ],
+  "suspended_card_ids": [
+   30
+  ]
+ },
+ {
+  "note_id": 4,
+  "fields": {
+   "Text": "The {{c1::buccinator}} muscle forms the cheek and is innervated by the {{c2::facial nerve (CN VII)}}",
+   "Extra": "Pierced by the parotid duct"
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Oral_Cavity"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   40
+  ],
+  "suspended_card_ids": [
+   40
+  ]
+ },
+ {
+  "note_id": 5,
+  "fields": {
+   "Text": "The parotid (Stensen) duct opens into the vestibule opposite the {{c1::upper second molar}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Salivary_Glands"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   50
+  ],
+  "suspended_card_ids": [
+   50
+  ]
+ },
+ {
+  "note_id": 6,
+  "fields": {
+   "Text": "The submandibular (Wharton) duct opens at the {{c1::sublingual caruncle}} beside the lingual frenulum",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Salivary_Glands"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   60
+  ],
+  "suspended_card_ids": [
+   60
+  ]
+ },
+ {
+  "note_id": 7,
+  "fields": {
+   "Text": "Sublingual drugs (e.g. nitroglycerin) are absorbed quickly because of the {{c1::thin mucosa}} and rich {{c2::venous plexus}} under the tongue",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Oral_Cavity"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   70
+  ],
+  "suspended_card_ids": [
+   70
+  ]
+ },
+ {
+  "note_id": 8,
+  "fields": {
+   "Text": "The {{c1::sulcus terminalis}} divides the tongue into an anterior two-thirds (oral) and a posterior one-third (pharyngeal) part",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Tongue"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   80
+  ],
+  "suspended_card_ids": [
+   80
+  ]
+ },
+ {
+  "note_id": 9,
+  "fields": {
+   "Text": "The {{c1::foramen cecum}} marks the origin of the thyroid gland descent; remnants can form a {{c2::thyroglossal duct cyst}}",
+   "Extra": "Lingual thyroid also possible"
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Tongue"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   90
+  ],
+  "suspended_card_ids": [
+   90
+  ]
+ },
+ {
+  "note_id": 10,
+  "fields": {
+   "Text": "{{c1::Filiform}} papillae are the most numerous tongue papillae and have {{c2::no taste buds}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Tongue"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   100
+  ],
+  "suspended_card_ids": [
+   100
+  ]
+ },
+ {
+  "note_id": 11,
+  "fields": {
+   "Text": "{{c1::Circumvallate}} papillae lie just anterior to the sulcus terminalis and are supplied by {{c2::CN IX}}",
+   "Extra": "8-12 in number"
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Tongue"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   110
+  ],
+  "suspended_card_ids": [
+   110
+  ]
+ },
+ {
+  "note_id": 12,
+  "fields": {
+   "Text": "Intrinsic tongue muscles change its {{c1::shape}}, extrinsic muscles change its {{c2::position}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Tongue"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   120
+  ],
+  "suspended_card_ids": [
+   120
+  ]
+ },
+ {
+  "note_id": 13,
+  "fields": {
+   "Text": "All tongue muscles are innervated by the {{c1::hypoglossal nerve (CN XII)}} except {{c2::palatoglossus}}, which is supplied by the {{c3::vagus (CN X)}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Tongue"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   130
+  ],
+  "suspended_card_ids": [
+   130
+  ]
+ },
+ {
+  "note_id": 14,
+  "fields": {
+   "Text": "The {{c1::genioglossus}} muscle protrudes the tongue",
+   "Extra": "Originates from the superior genial (mental) spine of the mandible"
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Tongue"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   140
+  ],
+  "suspended_card_ids": [
+   140
+  ]
+ },
+ {
+  "note_id": 15,
+  "fields": {
+   "Text": "With a lower motor neuron CN XII lesion, the tongue deviates {{c1::toward}} the side of the lesion on protrusion",
+   "Extra": "Unopposed contralateral genioglossus"
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Tongue"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   150
+  ],
+  "suspended_card_ids": [
+   150
+  ]
+ },
+ {
+  "note_id": 16,
+  "fields": {
+   "Text": "The {{c1::hyoglossus}} depresses and retracts the tongue",
+   "Extra": "Lingual artery passes deep to it"
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Tongue"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   160
+  ],
+  "suspended_card_ids": [
+   160
+  ]
+ },
+ {
+  "note_id": 17,
+  "fields": {
+   "Text": "The {{c1::styloglossus}} retracts and elevates the tongue",
+   "Extra": "Arises from styloid process"
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Tongue"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   170
+  ],
+  "suspended_card_ids": [
+   170
+  ]
+ },
+ {
+  "note_id": 18,
+  "fields": {
+   "Text": "The {{c1::palatoglossus}} forms the anterior tonsillar pillar (palatoglossal arch)",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Tongue"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   180
+  ],
+  "suspended_card_ids": [
+   180
+  ]
+ },
+ {
+  "note_id": 19,
+  "fields": {
+   "Text": "General sensation of the anterior two-thirds of the tongue is carried by the {{c1::lingual nerve (V3)}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Tongue"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   190
+  ],
+  "suspended_card_ids": [
+   190
+  ]
+ },
+ {
+  "note_id": 20,
+  "fields": {
+   "Text": "Taste from the anterior two-thirds of the tongue travels in the {{c1::chorda tympani}} of {{c2::CN VII}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Tongue"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   200
+  ],
+  "suspended_card_ids": [
+   200
+  ]
+ },
+ {
+  "note_id": 21,
+  "fields": {
+   "Text": "Both taste and general sensation from the posterior one-third of the tongue are carried by {{c1::CN IX (glossopharyngeal)}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Tongue"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   210
+  ],
+  "suspended_card_ids": [
+   210
+  ]
+ },
+ {
+  "note_id": 22,
+  "fields": {
+   "Text": "The {{c1::lingual nerve}} is at risk during extraction of mandibular third molars (wisdom teeth)",
+   "Extra": "Causes numbness of anterior 2/3 of tongue"
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Tongue"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   220
+  ],
+  "suspended_card_ids": [
+   220
+  ]
+ },
+ {
+  "note_id": 23,
+  "fields": {
+   "Text": "The tongue is supplied by the {{c1::lingual artery}}, a branch of the {{c2::external carotid artery}}",
+   "Extra": "Arises at the level of the greater horn of hyoid"
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Tongue"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   230
+  ],
+  "suspended_card_ids": [
+   230
+  ]
+ },
+ {
+  "note_id": 24,
+  "fields": {
+   "Text": "Lymph from the tip of the tongue drains first to the {{c1::submental}} nodes",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Tongue"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   240
+  ],
+  "suspended_card_ids": [
+   240
+  ]
+ },
+ {
+  "note_id": 25,
+  "fields": {
+   "Text": "Cancer of the posterior one-third of the tongue may spread {{c1::bilaterally}} to deep cervical nodes",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Tongue"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   250
+  ],
+  "suspended_card_ids": [
+   250
+  ]
+ },
+ {
+  "note_id": 26,
+  "fields": {
+   "Text": "The {{c1::jugulo-omohyoid}} node is the main lymph node of the tongue",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Tongue"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   260
+  ],
+  "suspended_card_ids": [
+   260
+  ]
+ },
+ {
+  "note_id": 27,
+  "fields": {
+   "Text": "Facial nerve palsy causes food to collect in the {{c1::vestibule}} because the {{c2::buccinator}} is paralysed",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Oral_Cavity"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   270
+  ],
+  "suspended_card_ids": [
+   270
+  ]
+ },
+ {
+  "note_id": 40,
+  "fields": {
+   "Text": "{{c1::Oral candidiasis}} (thrush) presents as white plaques on the tongue and buccal mucosa that {{c2::can be scraped off}}",
+   "Extra": "Risk: immunosuppression, inhaled steroids"
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Oral_Pathology"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   400
+  ],
+  "suspended_card_ids": [
+   400
+  ]
+ },
+ {
+  "note_id": 41,
+  "fields": {
+   "Text": "{{c1::Aphthous ulcers}} are painful, recurrent, shallow oral ulcers with a grey base",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Oral_Pathology"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   410
+  ],
+  "suspended_card_ids": [
+   410
+  ]
+ },
+ {
+  "note_id": 42,
+  "fields": {
+   "Text": "{{c1::Glossitis}} with a smooth, red, painful tongue suggests deficiency of {{c2::vitamin B12, folate or iron}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Oral_Pathology"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   420
+  ],
+  "suspended_card_ids": [
+   420
+  ]
+ },
+ {
+  "note_id": 43,
+  "fields": {
+   "Text": "{{c1::Black hairy tongue}} results from elongated filiform papillae stained by chromogenic bacteria",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Oral_Pathology"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   430
+  ],
+  "suspended_card_ids": [
+   430
+  ]
+ },
+ {
+  "note_id": 44,
+  "fields": {
+   "Text": "{{c1::Leukoplakia}} is a white patch that cannot be scraped off and is {{c2::premalignant}}",
+   "Extra": "Common on lateral tongue; smokers"
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Oral_Pathology"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   440
+  ],
+  "suspended_card_ids": [
+   440
+  ]
+ },
+ {
+  "note_id": 45,
+  "fields": {
+   "Text": "{{c1::Xerostomia}} (dry mouth) is caused by Sjogren syndrome, radiotherapy and {{c2::anticholinergic}} drugs",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Oral_Pathology"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   450
+  ],
+  "suspended_card_ids": [
+   450
+  ]
+ },
+ {
+  "note_id": 46,
+  "fields": {
+   "Text": "The most common viral cause of parotitis is {{c1::mumps}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Oral_Pathology"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   460
+  ],
+  "suspended_card_ids": [
+   460
+  ]
+ },
+ {
+  "note_id": 47,
+  "fields": {
+   "Text": "{{c1::Dysphagia}} is difficulty swallowing, while {{c2::odynophagia}} is painful swallowing",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Esophagus"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   470
+  ],
+  "suspended_card_ids": [
+   470
+  ]
+ },
+ {
+  "note_id": 48,
+  "fields": {
+   "Text": "{{c1::Achalasia}} is failure of the lower esophageal sphincter to relax, with loss of myenteric plexus",
+   "Extra": "Bird-beak on barium swallow"
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Esophagus"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   480
+  ],
+  "suspended_card_ids": [
+   480
+  ]
+ },
+ {
+  "note_id": 49,
+  "fields": {
+   "Text": "{{c1::Globus}} is a sensation of a lump in the throat without true dysphagia",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Esophagus"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   490
+  ],
+  "suspended_card_ids": [
+   490
+  ]
+ },
+ {
+  "note_id": 50,
+  "fields": {
+   "Text": "GERD presents with {{c1::heartburn}} that worsens after meals and when {{c2::lying down}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Esophagus"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   500
+  ],
+  "suspended_card_ids": [
+   500
+  ]
+ },
+ {
+  "note_id": 51,
+  "fields": {
+   "Text": "{{c1::Water brash}} is sudden filling of the mouth with saliva, often with acid reflux",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Esophagus"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   510
+  ],
+  "suspended_card_ids": [
+   510
+  ]
+ },
+ {
+  "note_id": 52,
+  "fields": {
+   "Text": "Common causes of {{c1::hematemesis}} include esophageal varices, peptic ulcer and Mallory-Weiss tears",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Upper_GI_Bleeding"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   520
+  ],
+  "suspended_card_ids": [
+   520
+  ]
+ },
+ {
+  "note_id": 53,
+  "fields": {
+   "Text": "{{c1::Tenesmus}} is a persistent feeling of incomplete rectal evacuation with painful straining",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Colon"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   530
+  ],
+  "suspended_card_ids": [
+   530
+  ]
+ },
+ {
+  "note_id": 54,
+  "fields": {
+   "Text": "Chronic diarrhea is defined as diarrhea lasting more than {{c1::4 weeks}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Colon"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   540
+  ],
+  "suspended_card_ids": [
+   540
+  ]
+ },
+ {
+  "note_id": 55,
+  "fields": {
+   "Text": "{{c1::Hematochezia}} is passage of fresh red blood per rectum",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Lower_GI_Bleeding"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   550
+  ],
+  "suspended_card_ids": [
+   550
+  ]
+ },
+ {
+  "note_id": 56,
+  "fields": {
+   "Text": "Jaundice becomes clinically visible when serum bilirubin exceeds about {{c1::2-3 mg/dL}}",
+   "Extra": "Scleral icterus first"
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Liver::Bilirubin"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   560
+  ],
+  "suspended_card_ids": [
+   560
+  ]
+ },
+ {
+  "note_id": 57,
+  "fields": {
+   "Text": "Weight loss despite increased appetite suggests {{c1::hyperthyroidism}} or uncontrolled diabetes",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Endocrine::Thyroid"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   570
+  ],
+  "suspended_card_ids": [
+   570
+  ]
+ },
+ {
+  "note_id": 58,
+  "fields": {
+   "Text": "Flatus is produced by colonic bacteria fermenting {{c1::undigested carbohydrates}} and by swallowed air",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Colon"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   580
+  ],
+  "suspended_card_ids": [
+   580
+  ]
+ },
+ {
+  "note_id": 59,
+  "fields": {
+   "Text": "{{c1::Dyspepsia}} is upper abdominal pain or discomfort related to meals",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Stomach"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   590
+  ],
+  "suspended_card_ids": [
+   590
+  ]
+ },
+ {
+  "note_id": 100,
+  "fields": {
+   "Text": "The {{c1::brachial plexus}} upper trunk is formed by C5 and C6",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Upper_Limb::Brachial_Plexus"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1000
+  ],
+  "suspended_card_ids": [
+   1000
+  ]
+ },
+ {
+  "note_id": 101,
+  "fields": {
+   "Text": "Loop diuretics inhibit the {{c1::NKCC2}} cotransporter in the thick ascending limb",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Renal::Pharmacology"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1010
+  ],
+  "suspended_card_ids": [
+   1010
+  ]
+ },
+ {
+  "note_id": 102,
+  "fields": {
+   "Text": "Troponin I rises within {{c1::4 hours}} of myocardial infarction",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Cardio::MI"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1020
+  ],
+  "suspended_card_ids": [
+   1020
+  ]
+ },
+ {
+  "note_id": 103,
+  "fields": {
+   "Text": "The {{c1::recurrent laryngeal nerve}} supplies all intrinsic laryngeal muscles except cricothyroid",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Larynx"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1030
+  ],
+  "suspended_card_ids": [
+   1030
+  ]
+ },
+ {
+  "note_id": 104,
+  "fields": {
+   "Text": "The {{c1::facial nerve}} exits the skull through the stylomastoid foramen",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Cranial_Nerves"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1040
+  ],
+  "suspended_card_ids": [
+   1040
+  ]
+ },
+ {
+  "note_id": 105,
+  "fields": {
+   "Text": "Horner syndrome causes ptosis, miosis and {{c1::anhidrosis}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Cranial_Nerves"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1050
+  ],
+  "suspended_card_ids": [
+   1050
+  ]
+ },
+ {
+  "note_id": 106,
+  "fields": {
+   "Text": "The thyroid gland develops from the {{c1::floor of the primitive pharynx}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Embryology::Head_Neck"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1060
+  ],
+  "suspended_card_ids": [
+   1060
+  ]
+ },
+ {
+  "note_id": 107,
+  "fields": {
+   "Text": "Celiac disease is associated with antibodies to {{c1::tissue transglutaminase}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Small_Intestine"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1070
+  ],
+  "suspended_card_ids": [
+   1070
+  ]
+ },
+ {
+  "note_id": 108,
+  "fields": {
+   "Text": "Crohn disease shows {{c1::skip lesions}} and transmural inflammation",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::IBD"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1080
+  ],
+  "suspended_card_ids": [
+   1080
+  ]
+ },
+ {
+  "note_id": 109,
+  "fields": {
+   "Text": "Hepatitis B surface antigen indicates {{c1::active infection}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Liver::Hepatitis"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1090
+  ],
+  "suspended_card_ids": [
+   1090
+  ]
+ },
+ {
+  "note_id": 110,
+  "fields": {
+   "Text": "H. pylori infection is treated with a PPI, clarithromycin and {{c1::amoxicillin}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Stomach"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1100
+  ],
+  "suspended_card_ids": [
+   1100
+  ]
+ },
+ {
+  "note_id": 111,
+  "fields": {
+   "Text": "Zenker diverticulum is a {{c1::false}} diverticulum at Killian triangle",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Esophagus"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1110
+  ],
+  "suspended_card_ids": [
+   1110
+  ]
+ },
+ {
+  "note_id": 112,
+  "fields": {
+   "Text": "Barrett esophagus is {{c1::intestinal metaplasia}} of the distal esophagus",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Esophagus"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1120
+  ],
+  "suspended_card_ids": [
+   1120
+  ]
+ },
+ {
+  "note_id": 113,
+  "fields": {
+   "Text": "Pancreatic lipase digests {{c1::triglycerides}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Biochemistry::Lipids"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1130
+  ],
+  "suspended_card_ids": [
+   1130
+  ]
+ },
+ {
+  "note_id": 114,
+  "fields": {
+   "Text": "Vitamin B12 is absorbed in the {{c1::terminal ileum}} bound to intrinsic factor",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Small_Intestine"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1140
+  ],
+  "suspended_card_ids": [
+   1140
+  ]
+ },
+ {
+  "note_id": 115,
+  "fields": {
+   "Text": "The mandibular division of trigeminal (V3) exits through the {{c1::foramen ovale}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Cranial_Nerves"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1150
+  ],
+  "suspended_card_ids": [
+   1150
+  ]
+ },
+ {
+  "note_id": 116,
+  "fields": {
+   "Text": "The {{c1::maxillary}} division of CN V gives sensation to the upper lip",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Cranial_Nerves"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1160
+  ],
+  "suspended_card_ids": [
+   1160
+  ]
+ },
+ {
+  "note_id": 117,
+  "fields": {
+   "Text": "The glossopharyngeal nerve carries taste from the posterior tongue and innervates {{c1::stylopharyngeus}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Cranial_Nerves"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1170
+  ],
+  "suspended_card_ids": [
+   1170
+  ]
+ },
+ {
+  "note_id": 118,
+  "fields": {
+   "Text": "Ludwig angina is cellulitis of the {{c1::submandibular space}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Oral_Cavity"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1180
+  ],
+  "suspended_card_ids": [
+   1180
+  ]
+ },
+ {
+  "note_id": 119,
+  "fields": {
+   "Text": "The superior laryngeal nerve internal branch gives sensation above the {{c1::vocal cords}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Anatomy::Head_Neck::Larynx"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1190
+  ],
+  "suspended_card_ids": [
+   1190
+  ]
+ },
+ {
+  "note_id": 120,
+  "fields": {
+   "Text": "Intussusception classically presents with {{c1::currant jelly}} stools",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Colon"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1200
+  ],
+  "suspended_card_ids": [
+   1200
+  ]
+ },
+ {
+  "note_id": 121,
+  "fields": {
+   "Text": "Hirschsprung disease is absence of ganglion cells in the {{c1::distal colon}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Colon"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1210
+  ],
+  "suspended_card_ids": [
+   1210
+  ]
+ },
+ {
+  "note_id": 122,
+  "fields": {
+   "Text": "Gilbert syndrome causes mild unconjugated hyperbilirubinemia during {{c1::fasting or stress}}",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Liver::Bilirubin"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1220
+  ],
+  "suspended_card_ids": [
+   1220
+  ]
+ },
+ {
+  "note_id": 123,
+  "fields": {
+   "Text": "Kawasaki disease causes a {{c1::strawberry tongue}} and coronary aneurysms",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Immunology::Vasculitis"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1230
+  ],
+  "suspended_card_ids": [
+   1230
+  ]
+ },
+ {
+  "note_id": 124,
+  "fields": {
+   "Text": "Plummer-Vinson syndrome: dysphagia, {{c1::esophageal webs}} and iron deficiency anemia",
+   "Extra": ""
+  },
+  "tags": [
+   "#AK_Step1_v12::#B&B::Gastrointestinal::Esophagus"
+  ],
+  "deck": "AnKing::Step1",
+  "card_ids": [
+   1240
+  ],
+  "suspended_card_ids": [
+   1240
+  ]
+ }
+]

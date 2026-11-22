@@ -125,7 +125,7 @@ class Matching:
             return match.chunks_from_pdf(path), 'pdf_text'
         return match.chunks_from_text(path.read_text(encoding='utf-8', errors='replace')), 'text'
 
-    def match_source(self, workspace, index='anking', highlights=None, covered=0.6, related=0.35,
+    def match_source(self, workspace, index='anking', highlights=None, covered=None, related=None,
                      per_chunk=3, expand_concepts=True, unsuspend_concepts=False):
         deck = self._load_index(index)
         chunks, origin = self._chunks(workspace, highlights)

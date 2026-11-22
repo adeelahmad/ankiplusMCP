@@ -83,14 +83,15 @@ def test_match_unsuspend_prompt(deck):
     index = match.DeckIndex(match.load_deck(deck, deck_prefix='AnKing'))
     chunks = match.chunks_from_text('# Thoracic outlet\n- Thoracic outlet syndrome compresses the lower trunk of the brachial plexus\n'
                                     '- Glomerular filtration rate depends on afferent arteriole tone\n')
-    report = match.match_chunks(index, chunks)
+    strict = match.Thresholds(covered=.6, related=.35)
+    report = match.match_chunks(index, chunks, strict)
     status = {r['text'].split()[0]: r['status'] for r in report['chunks']}
     assert status == {'Thoracic': 'covered', 'Glomerular': 'gap'}
     assert report['unsuspend']['card_ids'] == [1001]      # only the matched note; concepts listed, not unsuspended
     covered = report['chunks'][0]
     assert {c['note_id'] for c in covered['concepts']} >= {102}
     assert report['unsuspend']['performed_anki_operations'] == 0
-    with_concepts = match.match_chunks(index, chunks, unsuspend_concepts=True)
+    with_concepts = match.match_chunks(index, chunks, strict, unsuspend_concepts=True)
     assert set(with_concepts['unsuspend']['card_ids']) == {1001, 1002}   # 103 has no suspended card
     prompt = match.build_prompt(report, 'L025.pdf')
     gaps = prompt.split('## Gaps')[1].split('##')[0]
@@ -200,3 +201,22 @@ def test_garbled_pdf_text_and_line_joining():
     assert texts == ['Tongue becomes red, smooth, and sore (seen in vitamin B12, folate, and iron deficiency)',
                      'Sulcus terminalis divides the oral part from the pharyngeal part',
                      'Foramen cecum marks the thyroid descent site']
+
+
+def test_threshold_defaults_follow_the_index_mode():
+    t = match.Thresholds()
+    assert (t.resolve(False).covered, t.resolve(False).related) == (.35, .2)
+    assert (t.resolve(True).covered, t.resolve(True).related) == (.55, .4)
+    assert match.Thresholds(covered=.7).resolve(True).covered == .7
+
+
+def test_synthetic_benchmark_bm25_no_wrong_unsuspends():
+    import importlib.util, pathlib
+    root = pathlib.Path(__file__).resolve().parents[2]
+    spec = importlib.util.spec_from_file_location('bench', root / 'scripts' / 'match_benchmark.py')
+    bench = importlib.util.module_from_spec(spec); spec.loader.exec_module(bench)
+    index = match.DeckIndex(match.load_deck(bench.ROOT / 'synthetic_anking.json'))
+    labels = json.loads((bench.ROOT / 'labels.json').read_text())
+    row = next(r for r in bench.sweep(index, labels) if r['covered'] == .35)
+    assert row['wrong_unsuspends'] == 0 and row['recall'] >= .85
+    assert match.evaluate(index, labels)['recall_at_k'] >= .9

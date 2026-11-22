@@ -1,16 +1,29 @@
 """Classify each chunk as covered / related / gap and collect cards to unsuspend."""
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, replace
 from .index import tokenize
 
 
 @dataclass(frozen=True)
 class Thresholds:
-    """Uncalibrated defaults; tune them with ``evaluate`` on a hand-labelled lecture."""
-    covered: float = 0.6
-    related: float = 0.35
+    """``None`` picks the calibrated default for the index (with or without embeddings).
+
+    Calibrated on scripts/match_benchmark.py (synthetic AnKing-style deck, 54 labelled facts
+    from two real lectures): the highest threshold with no wrong unsuspensions.
+    BM25 only: covered 0.35 (precision 1.0, recall 0.89). With Nomic embeddings: covered
+    0.55 (precision 1.0, recall 0.89, recall@5 1.0). Re-check on a real AnKing export.
+    """
+    covered: float | None = None
+    related: float | None = None
     per_chunk: int = 3          # existing notes accepted per covered chunk
     concepts: int = 5           # concept neighbours listed per covered chunk
     max_group: int = 150        # topic tags larger than this are too broad to expand
+
+    DEFAULTS = {False: (0.35, 0.2), True: (0.55, 0.4)}
+
+    def resolve(self, embeddings):
+        covered, related = self.DEFAULTS[bool(embeddings)]
+        return replace(self, covered=covered if self.covered is None else self.covered,
+                       related=related if self.related is None else self.related)
 
 
 def _summary(index, hit, chunk_terms=None):
@@ -25,7 +38,7 @@ def _summary(index, hit, chunk_terms=None):
 
 
 def match_chunks(index, chunks, thresholds=None, k=5, expand_concepts=True, unsuspend_concepts=False):
-    t = thresholds or Thresholds()
+    t = (thresholds or Thresholds()).resolve(index.vectors is not None)
     rows, unsuspend = [], {}
 
     def claim(summary, chunk_id, reason):
