@@ -8,8 +8,8 @@ Scores returned per hit:
 - ``lexical``: geometric mean of ``overlap`` and ``reverse``. Both directions are needed on
   a real deck: long AnKing Extras contain most words of any short lecture line,
 - ``cosine``: embedding similarity (0..1) when embeddings are available, else None,
-- ``score``: the value thresholds use: ``lexical``, raised to the mean of
-  ``lexical`` and ``cosine`` when embeddings exist and that is higher.
+- ``score``: the value thresholds use: ``lexical``, raised to ``0.3 * lexical + 0.7 * cosine``
+  when embeddings exist and that is higher (calibrated on a real AnKing deck).
 Numbers weigh a quarter of a word, so slide numbering and table cells don't match arithmetic cards,
 and ``lexical`` is halved unless the note's first field shares at least two words with the query.
 Candidates from both retrievers are merged by reciprocal rank fusion.
@@ -160,7 +160,7 @@ class DeckIndex:
             if sum(1 for t in front if t in terms and not t.isdigit()) < 2:
                 lex /= 2  # one shared word (or only numbers) is a coincidence, not the same fact
             cosine = None if cos is None else max(0.0, float(cos[doc]))
-            score = lex if cosine is None else max(lex, (lex + cosine) / 2)
+            score = lex if cosine is None else max(lex, 0.3 * lex + 0.7 * cosine)
             hits.append({'doc': doc, 'score': round(score, 4), 'overlap': round(overlap, 4),
                          'reverse': round(reverse, 4), 'lexical': round(lex, 4),
                          'cosine': None if cosine is None else round(cosine, 4),
