@@ -227,6 +227,10 @@ class FastEmbedder:
     PREFIXES = {'nomic': ('search_document: ', 'search_query: ')}
 
     def __init__(self, model=None, dim=256):
+        import os
+        # Some networks allow huggingface.co but block its Xet storage, and the Xet client
+        # retries for minutes before failing. Plain HTTPS works everywhere; set it to 0 to opt in.
+        os.environ.setdefault('HF_HUB_DISABLE_XET', '1')
         from fastembed import TextEmbedding
         self.model_name = model or self.DEFAULT
         self.dim = dim if 'nomic' in self.model_name.lower() else None

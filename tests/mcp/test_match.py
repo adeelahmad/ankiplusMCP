@@ -175,3 +175,28 @@ def test_cli(tmp_path, deck, capsys):
                  '--index-dir', str(tmp_path / 'idx'), '--embeddings', 'off'])
     assert code == 0 and '1 covered' in capsys.readouterr().out
     assert json.loads((tmp_path / 'out' / 'unsuspend.json').read_text())['card_ids'] == [1004, 1005]
+
+
+@pytest.mark.skipif(not __import__('os').environ.get('ANKIPLUS_REAL_EMBEDDINGS'), reason='set ANKIPLUS_REAL_EMBEDDINGS=1 to download and run the Nomic ONNX model')
+def test_real_nomic_embeddings_find_paraphrases(deck):
+    from ankiplusmcp.match.index import get_embedder
+    index = match.DeckIndex(match.load_deck(deck, deck_prefix='AnKing'), embedder=get_embedder('required'))
+    index.embed_all()
+    assert index.vectors.shape == (5, 256)
+    hit = index.search('cardiac enzyme elevated after a heart attack')[0]   # no shared words with note 105
+    assert index.notes[hit['doc']]['note_id'] == 105 and hit['overlap'] == 0 and hit['cosine'] > .55
+
+
+def test_garbled_pdf_text_and_line_joining():
+    from ankiplusmcp.match.chunks import looks_garbled
+    # A broken font encoding seen in a real lecture: every glyph shifted by 29 code points.
+    shifted = ''.join(chr(ord(c) - 29) for c in 'The digestive system is responsible for breaking down food into absorbable nutrients')
+    assert looks_garbled(shifted) and not looks_garbled('The digestive system is responsible for breaking down food.')
+    slides = [{'n': n, 'title': '', 'text': f'BMC Medical College\n{body}\n{n}'} for n, body in enumerate([
+        '\u2022 Tongue becomes red, smooth, and sore (seen in vitamin\nB12, folate, and iron deficiency)\nFigure 3: Netter atlas',
+        '\u00a2 Sulcus terminalis divides the oral part\nfrom the pharyngeal part',
+        'Foramen cecum marks the thyroid descent site'], start=1)]
+    texts = [c['text'] for c in match.chunks_from_slides(slides)]
+    assert texts == ['Tongue becomes red, smooth, and sore (seen in vitamin B12, folate, and iron deficiency)',
+                     'Sulcus terminalis divides the oral part from the pharyngeal part',
+                     'Foramen cecum marks the thyroid descent site']

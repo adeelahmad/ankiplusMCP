@@ -110,7 +110,14 @@ class Matching:
         manifest = self.store.get(workspace)
         if self.published(workspace):
             _, data, _ = self.source_data(workspace)
-            return match.chunks_from_slides(data['slides']), 'extraction'
+            slides = data['slides']
+            path = Path(manifest['source']['path']) if manifest['source'] else None
+            broken = [s['n'] for s in slides if match.chunks.looks_garbled(s.get('text', ''))]
+            if broken and path and path.suffix == '.pdf':
+                # A broken font encoding passes extraction as garbage; OCR those pages instead.
+                fixed = {s['n']: s for s in match.chunks.pdf_pages(path, pages=set(broken))}
+                slides = [fixed.get(s['n'], s) for s in slides]
+            return match.chunks_from_slides(slides), 'extraction'
         if not manifest['source']:
             raise DomainError('SOURCE', 'Workspace has no source.', 'Create the workspace with a source, or pass highlights.')
         path = Path(manifest['source']['path'])
