@@ -90,7 +90,27 @@ jobs:
           "$uv" tool run --python "$py" --from "$spec" ankiplusmcp doctor --json > /tmp/doctor.json || true
           cat /tmp/doctor.json
           python3 -c "import json,sys; d=json.load(open('/tmp/doctor.json')); bad=[c['name'] for c in d['checks'] if c['required'] and c['status']!='ok']; print('required missing:', bad); sys.exit(1 if bad else 0)"
+          mkdir -p "$RUNNER_TEMP/pkgroot" && cp -R "$app" "$RUNNER_TEMP/pkgroot/"
           hdiutil detach /tmp/ankiplus
+      - name: Build and test the .pkg (macOS)
+        # The .pkg copies AnkiPlus.app to /Applications and its postinstall clears the
+        # quarantine flag, so after one "Open Anyway" for the installer the app opens freely.
+        if: runner.os == 'macOS'
+        run: |
+          version=$(node -p "require('../../../package.json').version")
+          pkgbuild --analyze --root "$RUNNER_TEMP/pkgroot" "$RUNNER_TEMP/component.plist"
+          plutil -replace 0.BundleIsRelocatable -bool NO "$RUNNER_TEMP/component.plist"
+          mkdir -p ../../target/pkg
+          pkgbuild --root "$RUNNER_TEMP/pkgroot" --component-plist "$RUNNER_TEMP/component.plist" \
+            --install-location /Applications --scripts ../macos-pkg/scripts \
+            --identifier net.ankiplus.desktop --version "$version" \
+            "../../target/pkg/AnkiPlus_${version}_aarch64.pkg"
+          sudo installer -pkg "../../target/pkg/AnkiPlus_${version}_aarch64.pkg" -target /
+          test -d /Applications/AnkiPlus.app
+          ! xattr -p com.apple.quarantine /Applications/AnkiPlus.app 2>/dev/null
+          main=$(find /Applications/AnkiPlus.app/Contents/MacOS -type f -perm -u+x ! -name 'uv*' | head -1)
+          "$main" --self-test "$GITHUB_WORKSPACE/tests/fixtures/match/synthetic_anking.json" /tmp/pkg-self-test.json
+          python3 -c "import json,sys; r=json.load(open('/tmp/pkg-self-test.json')); print(r); sys.exit(0 if r['ok'] else 1)"
       - name: Test the installed app (Windows)
         if: runner.os == 'Windows'
         run: |
@@ -111,7 +131,7 @@ jobs:
       - name: Collect
         run: |
           mkdir -p ../../../dist-installer
-          find ../../target/${{ matrix.target }}/release/bundle \( -name '*.dmg' -o -name '*-setup.exe' \) -exec cp {} ../../../dist-installer/ \;
+          find ../../target/${{ matrix.target }}/release/bundle ../../target/pkg \( -name '*.dmg' -o -name '*.pkg' -o -name '*-setup.exe' \) -exec cp {} ../../../dist-installer/ \; 2>/dev/null || true
           ls -l ../../../dist-installer
       - uses: actions/upload-artifact@v4
         with:
