@@ -25,12 +25,15 @@ rust/
 | Gaps-only drafting prompt | `prompt.py` | `prompt.rs` |
 | Quote check (`check_source_support`, difflib ratio ported exactly) | `quotes.py` | `quotes.rs` |
 | Threshold evaluation on hand labels | `evaluate.py` | `evaluate.rs` |
+| Anki profile discovery (index the collection without exporting) | `profiles.py` | `profiles.rs` |
+| Re-embed only new or changed notes (`note_id` + sha1 of text), written cards added at once | `index.py`, `matching.py` | `index.rs`, `pipeline.rs` |
 | File index store (same `notes.jsonl.gz`, `meta.json`, float16 `embeddings.npy`) | `FileIndexStore` | `store.rs` |
 | Embedded Postgres + pgvector (same schema) | `pgstore.py` | `pgstore.rs` (feature `postgres`) |
 | Local ONNX embeddings, nomic-embed-text-v1.5, prefixes, 256 dims | fastembed | fastembed-rs (feature `embed`) |
 | PDF text | PyMuPDF | docling.rs text layer (feature `pdf`) |
 
-The cache key is the Python one, so both sides reuse each other's cached indexes
+The cache key is the Python one (deck path, prefix and embedding mode; the deck's size and
+mtime are kept as `deck_stamp` in `meta.json`), so both sides reuse each other's cached indexes
 under `~/.cache/ankiplusmcp/indexes`. Embedding vectors are compatible because both
 run the same ONNX model with the same prefixes and Matryoshka truncation.
 
@@ -63,6 +66,7 @@ To make an installer: `cargo install tauri-cli` then `cargo tauri build` in `app
 ankiplus match --deck AnKing.apkg --deck-prefix AnKing --pdf L025.pdf --out builds/L025
 ankiplus match --deck AnKing.apkg --highlights highlights.json --out builds/L025
 ankiplus match --deck AnKing.apkg --evaluate labels.json
+ankiplus match --profile "User 1" --pdf L025.pdf --out builds/L025   # no export; ANKI_BASE overrides the Anki folder
 ankiplus check --cards drafts.json --text lecture.md
 ```
 

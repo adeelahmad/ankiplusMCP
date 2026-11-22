@@ -30,6 +30,7 @@ flate2 = "1"
 half = "2"
 tempfile = "3"
 sha2 = "0.10"
+sha1 = "0.10"
 
 fastembed = { version = "7.8", optional = true, default-features = false, features = ["onnx", "ort-download-binaries-rustls-tls", "hf-hub-rustls-tls", "onig"] }
 postgresql_embedded = { version = "0.22", optional = true, features = ["blocking"] }

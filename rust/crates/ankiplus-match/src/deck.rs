@@ -357,3 +357,33 @@ fn names(db: &Connection, has: &dyn Fn(&str) -> bool) -> Result<Names, Error> {
     }
     Ok((decks, models, fields))
 }
+
+/// One deck of a collection with its subdecks rolled in.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct DeckSummary {
+    pub name: String,
+    pub notes: usize,
+    pub cards: usize,
+    pub suspended_cards: usize,
+}
+
+/// Every deck path in a deck file (parents included), with note, card and suspended
+/// counts that include its subdecks. Sorted by name.
+pub fn list_decks(path: &Path) -> Result<Vec<DeckSummary>, Error> {
+    let notes = load_deck(path, &LoadOptions::default())?;
+    let mut out: std::collections::BTreeMap<String, DeckSummary> = Default::default();
+    for n in &notes {
+        if n.deck.is_empty() {
+            continue;
+        }
+        let parts: Vec<&str> = n.deck.split("::").collect();
+        for depth in 1..=parts.len() {
+            let name = parts[..depth].join("::");
+            let e = out.entry(name.clone()).or_insert(DeckSummary { name, notes: 0, cards: 0, suspended_cards: 0 });
+            e.notes += 1;
+            e.cards += n.card_ids.len();
+            e.suspended_cards += n.suspended_card_ids.len();
+        }
+    }
+    Ok(out.into_values().collect())
+}

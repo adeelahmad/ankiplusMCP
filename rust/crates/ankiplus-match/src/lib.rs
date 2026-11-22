@@ -15,8 +15,10 @@ pub mod evaluate;
 pub mod index;
 pub mod matcher;
 pub mod pipeline;
+pub mod profiles;
 pub mod prompt;
 pub mod quotes;
+pub mod setup;
 pub mod store;
 pub mod text;
 pub mod unsuspend_log;
@@ -28,10 +30,10 @@ pub mod pdf;
 #[cfg(feature = "postgres")]
 pub mod pgstore;
 
-pub use chunks::{chunks_from_highlights, chunks_from_pages, chunks_from_slides, chunks_from_text, Chunk, Highlight, Slide};
-pub use deck::{load_deck, LoadOptions, Note};
+pub use chunks::{ocr_layout, chunks_from_highlights, chunks_from_pages, chunks_from_slides, chunks_from_text, Chunk, Highlight, Slide};
+pub use deck::{list_decks, load_deck, DeckSummary, LoadOptions, Note};
 pub use evaluate::{evaluate, Evaluation, Label};
-pub use index::{DeckIndex, Embedder, Hit};
+pub use index::{DeckIndex, EmbedCounts, Embedder, Hit};
 pub use matcher::{match_chunks, MatchOptions, Report, Thresholds};
 pub use prompt::build_prompt;
 pub use quotes::{check_support, DraftCard, SupportReport};
