@@ -114,7 +114,15 @@ jobs:
       - name: pg_tokenizer
         run: scripts/pg-ext/build-rust-ext.sh "$RUNNER_TEMP/src/pg_tokenizer" pg_tokenizer "$PG_TOKENIZER_VERSION"
       - name: vchord_bm25
-        run: scripts/pg-ext/build-rust-ext.sh "$RUNNER_TEMP/src/vchord_bm25" vchord_bm25 "$VCHORD_BM25_VERSION"
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then
+            # MSVC bindgen types C enums as i32 (u32 elsewhere); let the casts follow the bindings.
+            src="$RUNNER_TEMP/src/vchord_bm25/src"
+            sed -i 's/RELOPT_KIND_BM25\.get(),/RELOPT_KIND_BM25.get() as _,/' "$src/index/options.rs"
+            sed -i 's/^\( *\)arg_flags,$/\1arg_flags as _,/' "$src/page/postgres.rs"
+            grep -c "as _," "$src/index/options.rs" "$src/page/postgres.rs"
+          fi
+          scripts/pg-ext/build-rust-ext.sh "$RUNNER_TEMP/src/vchord_bm25" vchord_bm25 "$VCHORD_BM25_VERSION"
       - name: Smoke test on a fresh server
         run: scripts/pg-ext/smoke-test.sh
       - name: Package
