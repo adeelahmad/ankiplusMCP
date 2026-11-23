@@ -34,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Versions
-        run: grep -E '^[A-Z_]+=' scripts/pg-ext/versions.env >> "$GITHUB_ENV"
+        run: grep -E '^[A-Z0-9_]+=' scripts/pg-ext/versions.env >> "$GITHUB_ENV"
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
