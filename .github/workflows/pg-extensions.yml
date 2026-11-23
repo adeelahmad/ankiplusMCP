@@ -2,7 +2,7 @@ name: Postgres extensions
 
 # Builds pgvector, pg_tokenizer and VectorChord-BM25 for the embedded Postgres 16 on each
 # desktop target, smoke-tests them on a real server, and (with publish) attaches one zip
-# per target to the pg-ext-<PG_VERSION>-<n> release that the app downloads on first run.
+# per target to the pg-ext-<PG_VERSION>-r<PG_EXT_REVISION> release that the app downloads on first run.
 # Upstream ships VectorChord-BM25 for Linux only, and the prebuilt x86 pgvector needs AVX-512.
 
 on:
@@ -34,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Versions
-        run: cat scripts/pg-ext/versions.env >> "$GITHUB_ENV"
+        run: grep -E '^[A-Z_]+=' scripts/pg-ext/versions.env >> "$GITHUB_ENV"
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -114,7 +114,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -a; . scripts/pg-ext/versions.env; set +a
-          tag="pg-ext-$PG_VERSION-${{ github.run_number }}"
+          tag="pg-ext-$PG_VERSION-r$PG_EXT_REVISION"
           notes="pgvector $PGVECTOR_VERSION, pg_tokenizer $PG_TOKENIZER_VERSION, VectorChord-BM25 $VCHORD_BM25_VERSION for Postgres $PG_VERSION. VectorChord-BM25 is AGPL-3.0 or Elastic-2.0; pg_tokenizer is Apache-2.0; pgvector is PostgreSQL-licensed."
           (cd dist && sha256sum *.zip > SHA256SUMS)
           gh release create "$tag" dist/* --title "$tag" --notes "$notes" --target "$GITHUB_SHA"
