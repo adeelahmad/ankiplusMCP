@@ -596,3 +596,33 @@ fn candidates_keep_only_cards_whose_answer_the_line_says() {
     assert_eq!(cands[&1].cards.iter().map(|c| c.card_id).collect::<Vec<_>>(), vec![11]);
     assert!(cands[&1].answer_in_lecture);
 }
+
+/// The Postgres + pgvector store end to end. The embedded server downloads Postgres and
+/// pgvector, so this runs only with ANKIPLUS_TEST_EMBEDDED_PG=1 (CI sets it on macOS);
+/// ANKIPLUS_PG_URL points it at an existing server instead.
+#[cfg(feature = "postgres")]
+#[test]
+fn postgres_index_round_trip() {
+    if std::env::var("ANKIPLUS_TEST_EMBEDDED_PG").as_deref() != Ok("1") {
+        eprintln!("skipped: set ANKIPLUS_TEST_EMBEDDED_PG=1");
+        return;
+    }
+    let tmp = tempfile::tempdir().unwrap();
+    let deck = make_collection(&tmp.path().join("c.anki2"));
+    let index_dir = tmp.path().join("indexes");
+    let req = pipeline::IndexRequest {
+        deck: &deck,
+        deck_prefix: None,
+        index_dir: &index_dir,
+        embeddings: pipeline::EmbeddingMode::Off,
+        backend: pipeline::Backend::Postgres,
+        rebuild: true,
+    };
+    let built = pipeline::open_index(&req, |_| {}).unwrap();
+    assert!(!built.notes.is_empty());
+    let reopened = pipeline::open_index(&pipeline::IndexRequest { rebuild: false, ..req }, |_| {}).unwrap();
+    assert_eq!(reopened.notes.len(), built.notes.len());
+    let hit = &reopened.search("Erb palsy upper trunk C5 C6", 3, 50).unwrap()[0];
+    assert_eq!(reopened.notes[hit.doc].note_id, 102);
+    ankiplus_match::pgstore::shutdown();
+}

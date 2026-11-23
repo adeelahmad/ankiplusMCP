@@ -1,2 +1,0 @@
-[files]
-extend-exclude = ["*.lock", "package-lock.json", "*.icns", "*.ico", "*.png"]

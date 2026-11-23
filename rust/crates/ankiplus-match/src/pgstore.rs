@@ -90,8 +90,10 @@ pub fn server_url(data_dir: &Path) -> Result<String, Error> {
     if let Some((_, url)) = servers.get(&key) {
         return Ok(url.clone());
     }
+    // Postgres 16: portalcorp/pgvector_compiled ships prebuilt pgvector only for pg16
+    // (macOS arm64, Windows and Linux x86-64); pg17 fails with "asset not found".
     let settings = Settings {
-        version: VersionReq::parse("=17").map_err(pg_err)?,
+        version: VersionReq::parse("=16").map_err(pg_err)?,
         installation_dir: key.join("install"),
         data_dir: key.join("data"),
         password_file: key.join(".pgpass"),
