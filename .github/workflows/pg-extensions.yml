@@ -26,7 +26,8 @@ jobs:
         include:
           - { os: macos-latest, target: aarch64-apple-darwin }
           - { os: windows-latest, target: x86_64-pc-windows-msvc }
-          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu }
+          # Pinned: pgrx 0.16's bindgen misreads the headers with the newer clang on ubuntu-26.04.
+          - { os: ubuntu-24.04, target: x86_64-unknown-linux-gnu }
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -47,8 +48,14 @@ jobs:
       - name: Postgres ${{ env.PG_VERSION }} (the same build postgresql_embedded installs)
         run: |
           pg="$RUNNER_TEMP/pg"; mkdir -p "$pg"
-          curl -sSLf "https://github.com/theseus-rs/postgresql-binaries/releases/download/$PG_VERSION/postgresql-$PG_VERSION-${{ matrix.target }}.tar.gz" | tar xz -C "$pg" --strip-components=1
+          # No tar -C: GNU tar reads "D:" in a Windows path as a remote host.
+          (cd "$pg" && curl -sSLf "https://github.com/theseus-rs/postgresql-binaries/releases/download/$PG_VERSION/postgresql-$PG_VERSION-${{ matrix.target }}.tar.gz" | tar xz --strip-components=1)
           if [ "$RUNNER_OS" = Windows ]; then pg=$(cygpath -m "$pg"); fi
+          # The macOS build records the SDK it was built with; point that path at this runner's SDK.
+          if [ "$RUNNER_OS" = macOS ]; then
+            want=$("$pg/bin/pg_config" --cppflags | sed -n 's/.*-isysroot \([^ ]*\).*/\1/p')
+            if [ -n "$want" ] && [ ! -d "$want" ]; then sudo mkdir -p "$(dirname "$want")" && sudo ln -s "$(xcrun --show-sdk-path)" "$want"; fi
+          fi
           echo "PG=$pg" >> "$GITHUB_ENV"
           echo "PG_CONFIG=$pg/bin/pg_config" >> "$GITHUB_ENV"
           echo "OUT=$(if [ "$RUNNER_OS" = Windows ]; then cygpath -m "$RUNNER_TEMP/out"; else echo "$RUNNER_TEMP/out"; fi)" >> "$GITHUB_ENV"
