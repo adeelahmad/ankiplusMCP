@@ -60,6 +60,16 @@ jobs:
           echo "PG_CONFIG=$pg/bin/pg_config" >> "$GITHUB_ENV"
           echo "OUT=$(if [ "$RUNNER_OS" = Windows ]; then cygpath -m "$RUNNER_TEMP/out"; else echo "$RUNNER_TEMP/out"; fi)" >> "$GITHUB_ENV"
           "$pg/bin/pg_config" --version
+      - name: Import library for postgres.exe (the Windows binaries ship without postgres.lib)
+        if: runner.os == 'Windows'
+        run: |
+          cd "$PG/lib"
+          if [ ! -f postgres.lib ]; then
+            dumpbin //nologo //exports ../bin/postgres.exe \
+              | awk 'BEGIN { print "LIBRARY postgres.exe"; print "EXPORTS" } $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9A-F]+$/ && NF >= 4 { print "  " $4 }' > postgres.def
+            echo "$(($(wc -l < postgres.def) - 2)) exports"
+            lib //nologo //machine:x64 //def:postgres.def //out:postgres.lib
+          fi
       - name: Sources
         run: |
           mkdir -p "$RUNNER_TEMP/src" && cd "$RUNNER_TEMP/src"
@@ -70,7 +80,8 @@ jobs:
         if: runner.os != 'Windows'
         working-directory: ${{ runner.temp }}/src/pgvector
         run: |
-          make PG_CONFIG="$PG_CONFIG" OPTFLAGS=""
+          # with_llvm=no: the server was built with JIT, but the JIT bitcode is not needed.
+          make PG_CONFIG="$PG_CONFIG" OPTFLAGS="" with_llvm=no
           mkdir -p "$OUT/lib" "$OUT/share/extension"
           cp vector.control sql/vector--*.sql "$OUT/share/extension/"
           cp vector$( [ "$RUNNER_OS" = macOS ] && echo .dylib || echo .so ) "$OUT/lib/"
