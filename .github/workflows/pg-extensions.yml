@@ -112,7 +112,15 @@ jobs:
           cargo install cargo-pgrx --version "$PGRX_VERSION" --locked
           cargo pgrx init --pg16 "$PG_CONFIG"
       - name: pg_tokenizer
-        run: scripts/pg-ext/build-rust-ext.sh "$RUNNER_TEMP/src/pg_tokenizer" pg_tokenizer "$PG_TOKENIZER_VERSION"
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then
+            # Windows has no fork: each backend re-runs _PG_init with IsUnderPostmaster set while
+            # shared_preload_libraries load, so allow that case (the check upstream assumes fork).
+            f="$RUNNER_TEMP/src/pg_tokenizer/src/lib.rs"
+            sed -i 's/if unsafe { pgrx::pg_sys::IsUnderPostmaster } {/if unsafe { pgrx::pg_sys::IsUnderPostmaster \&\& !pgrx::pg_sys::process_shared_preload_libraries_in_progress } {/' "$f"
+            grep -q process_shared_preload_libraries_in_progress "$f"
+          fi
+          scripts/pg-ext/build-rust-ext.sh "$RUNNER_TEMP/src/pg_tokenizer" pg_tokenizer "$PG_TOKENIZER_VERSION"
       - name: vchord_bm25
         run: |
           if [ "$RUNNER_OS" = Windows ]; then
