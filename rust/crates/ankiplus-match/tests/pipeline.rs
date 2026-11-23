@@ -607,6 +607,10 @@ fn postgres_index_round_trip() {
         eprintln!("skipped: set ANKIPLUS_TEST_EMBEDDED_PG=1");
         return;
     }
+    if std::env::var("ANKIPLUS_PG_URL").is_err() && !ankiplus_match::pgstore::cpu_supports_bundled_pgvector() {
+        eprintln!("skipped: this CPU lacks the AVX-512 the prebuilt pgvector needs");
+        return;
+    }
     let tmp = tempfile::tempdir().unwrap();
     let deck = make_collection(&tmp.path().join("c.anki2"));
     let index_dir = tmp.path().join("indexes");

@@ -59,3 +59,18 @@ jobs:
           # The Postgres download lists GitHub releases; unauthenticated calls get rate-limited.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: cargo test -p ankiplus-match --features postgres --test pipeline postgres_index_round_trip -- --nocapture
+
+  postgres-windows:
+    # Embedded Postgres on Windows broke once on path handling; run the same round trip there.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - name: Embedded Postgres + pgvector round trip
+        env:
+          ANKIPLUS_TEST_EMBEDDED_PG: "1"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: cargo test -p ankiplus-match --features postgres --test pipeline postgres_index_round_trip -- --nocapture
