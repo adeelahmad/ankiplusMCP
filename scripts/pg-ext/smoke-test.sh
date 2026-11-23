@@ -9,8 +9,8 @@ cp -a "$OUT/lib/." "$work/pg/lib/"
 cp -a "$OUT/share/extension/." "$work/pg/share/extension/"
 bin="$work/pg/bin"
 "$bin/initdb" -D "$work/data" -U postgres -A trust > /dev/null
+trap '"$bin/pg_ctl" -D "$work/data" -m fast stop > /dev/null 2>&1 || true; echo "--- server log"; tail -40 "$work/log" 2>/dev/null || true' EXIT
 "$bin/pg_ctl" -D "$work/data" -o "-p 55432 -c listen_addresses=localhost -c shared_preload_libraries=pg_tokenizer,vchord_bm25" -l "$work/log" -w start
-trap '"$bin/pg_ctl" -D "$work/data" -m fast stop > /dev/null || true; cat "$work/log" | tail -20' EXIT
 psql() { "$bin/psql" -h localhost -p 55432 -U postgres -d postgres -v ON_ERROR_STOP=1 -qAt "$@"; }
 psql <<'SQL'
 CREATE EXTENSION vector;
