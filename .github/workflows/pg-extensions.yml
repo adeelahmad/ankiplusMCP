@@ -59,7 +59,7 @@ jobs:
           git -c advice.detachedHead=false clone -q --depth 1 --branch "v$PGVECTOR_VERSION" https://github.com/pgvector/pgvector pgvector
           git -c advice.detachedHead=false clone -q --depth 1 --branch "$PG_TOKENIZER_VERSION" https://github.com/tensorchord/pg_tokenizer.rs pg_tokenizer
           git -c advice.detachedHead=false clone -q --depth 1 --branch "$VCHORD_BM25_VERSION" https://github.com/tensorchord/VectorChord-bm25 vchord_bm25
-      - name: pgvector (portable: no -march=native, so no AVX-512 requirement)
+      - name: "pgvector (portable, no -march=native, so no AVX-512 requirement)"
         if: runner.os != 'Windows'
         working-directory: ${{ runner.temp }}/src/pgvector
         run: |
