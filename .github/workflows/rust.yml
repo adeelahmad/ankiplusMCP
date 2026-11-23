@@ -74,3 +74,5 @@ jobs:
           ANKIPLUS_TEST_EMBEDDED_PG: "1"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: cargo test -p ankiplus-match --features postgres --test pipeline postgres_index_round_trip -- --nocapture
+      - name: Windows path handling for the embedded server
+        run: cargo test -p ankiplus-match --features postgres --lib plain_path -- --nocapture
